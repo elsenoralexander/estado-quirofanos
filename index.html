@@ -40,7 +40,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- 1. CONFIGURACIÓN DE FIREBASE (PROYECTO: quirofanos-bf581) ---
+        // --- 1. CONFIGURACIÓN DE FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyDUtotD90gGjoCpFGOlJ7-N8SJfu9SHpuM",
             authDomain: "quirofanos-bf581.firebaseapp.com",
@@ -116,7 +116,6 @@
             const [loading, setLoading] = useState(true);
             const [syncing, setSyncing] = useState(false);
 
-            // Estados para edición local
             const [editingBocaId, setEditingBocaId] = useState(null);
             const [tempBocaData, setTempBocaData] = useState({ boca: '', uso: '', verificado: false });
             const [isEditingDesc, setIsEditingDesc] = useState(false);
@@ -128,7 +127,6 @@
             const logoFileRef = useRef();
             const manualFileRef = useRef();
 
-            // Referencia dinámica de Firestore siguiendo la Regla 1
             const getColl = (name) => db.collection('artifacts').doc(currentAppId).collection('public').doc('data').collection(name);
 
             useEffect(() => {
@@ -136,7 +134,6 @@
                     try {
                         await auth.signInAnonymously();
                         
-                        // Sincronización de Salas
                         getColl('rooms').onSnapshot(snap => {
                             if (snap.empty) {
                                 ROOMS_BASE.forEach(r => getColl('rooms').doc(r.id.toString()).set({...r, imagen: ""}, {merge: true}));
@@ -146,7 +143,6 @@
                             setLoading(false);
                         });
 
-                        // Sincronización de Equipos
                         getColl('equipments').onSnapshot(snap => {
                             if (snap.empty) {
                                 ROOMS_BASE.forEach(r => {
@@ -164,7 +160,6 @@
                             }
                         });
 
-                        // Sincronización de Conexiones
                         getColl('connections').onSnapshot(snap => {
                             if (snap.empty) {
                                 ROOMS_BASE.forEach(r => {
@@ -178,7 +173,6 @@
                             }
                         });
 
-                        // Sincronización de Configuración Global
                         getColl('settings').doc('global').onSnapshot(doc => {
                             if (doc.exists) setConfig(doc.data());
                         });
@@ -238,10 +232,17 @@
                 return Math.max(0, edad);
             };
 
+            // Nueva función para obtener colores por antigüedad (solicitado)
+            const getAgeColors = (anios) => {
+                if (anios < 10) return { border: 'border-emerald-500', text: 'text-emerald-600', bg: 'bg-emerald-50' };
+                if (anios <= 15) return { border: 'border-amber-500', text: 'text-amber-600', bg: 'bg-amber-50' };
+                return { border: 'border-red-500', text: 'text-red-600', bg: 'bg-red-50' };
+            };
+
             const calcularProximaRevision = (fecha, period) => {
                 if (!fecha) return "Pendiente";
                 const f = new Date(fecha);
-                if (period === 'semestral') f.setMonth(f.getMonth() + 6);
+                if (period === 'semestral') f.setMonth(f.setMonth() + 6);
                 else if (period === 'anual') f.setFullYear(f.getFullYear() + 1);
                 else if (period === 'bienal') f.setFullYear(f.getFullYear() + 2);
                 return f.toLocaleDateString('es-ES');
@@ -257,9 +258,7 @@
                 </div>
             );
 
-            // --- VISTAS DEL DASHBOARD ---
-
-            // VISTA: LANDING (Mosaico de Quirófanos)
+            // --- VISTAS ---
             if (view === 'landing') return (
                 <div className="min-h-screen animate-in bg-slate-50 pb-20">
                     <header className="bg-[#00A896] h-20 shadow-md text-white sticky top-0 z-30 flex items-center px-6">
@@ -293,7 +292,6 @@
                 </div>
             );
 
-            // VISTA: DETALLE QUIRÓFANO
             if (view === 'detail' && selectedOR) return (
                 <div className="min-h-screen bg-white animate-in text-slate-800 pb-20">
                     <div className="h-80 bg-slate-900 relative overflow-hidden text-white">
@@ -314,7 +312,7 @@
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
                             {['Operativo', 'Mantenimiento', 'No disponible'].map(st => (
                                 <button key={st} onClick={() => saveChange('rooms', selectedOR.id.toString(), {estado: st})} 
-                                        className={`p-4 rounded-2xl font-bold text-xs transition-all border-2 ${selectedOR.estado === st ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
+                                        className={`p-4 rounded-2xl font-bold text-xs border-2 transition-all ${selectedOR.estado === st ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
                                         style={selectedOR.estado === st ? { borderColor: st === 'Operativo' ? '#10b981' : st === 'Mantenimiento' ? '#f59e0b' : '#ef4444', borderTopWidth: '4px' } : {}}>
                                     {st}
                                 </button>
@@ -331,15 +329,17 @@
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {equipments.filter(e => e.roomId == selectedOR.id).map(eq => {
                                 const exists = eq.existe !== false;
+                                const anios = calcularAntiguedad(eq.fechaAdquisicion);
+                                const ageColors = getAgeColors(anios);
                                 return (
                                     <div key={eq.id} onClick={() => { setSelectedEqId(eq.id); setView('eq'); }} 
-                                         className={`flex items-center p-4 bg-white border border-slate-100 rounded-3xl border-l-4 shadow-sm hover:shadow-md transition-all cursor-pointer group ${!exists ? 'opacity-60 grayscale bg-slate-50 border-l-red-500' : 'border-l-[#00A896]'}`}>
+                                         className={`flex items-center p-4 bg-white border border-slate-100 rounded-3xl border-l-4 shadow-sm hover:shadow-md transition-all cursor-pointer group ${!exists ? 'opacity-60 grayscale bg-slate-50 border-l-slate-400' : ageColors.border}`}>
                                         <div className="w-16 h-16 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0 border"><img src={eq.imagen} className="w-full h-full object-cover" /></div>
                                         <div className="ml-4 flex-grow overflow-hidden text-slate-800">
                                             <h4 className="font-bold text-slate-800 text-base group-hover:text-[#00A896] truncate transition-colors">{eq.nombre}</h4>
                                             <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">
                                                 {exists ? (
-                                                    <span>{eq.tipo} • {calcularAntiguedad(eq.fechaAdquisicion)} años</span>
+                                                    <span className="flex items-center gap-1.5">{eq.tipo} • <span className={ageColors.text}>{anios} años</span></span>
                                                 ) : (
                                                     <span className="text-red-500 flex items-center gap-1 font-black"><Icon name="EyeOff" size={10} /> NO DISPONIBLE EN SALA</span>
                                                 )}
@@ -354,7 +354,6 @@
                 </div>
             );
 
-            // VISTA: DETALLE EQUIPO
             if (view === 'eq' && selectedEq) return (
                 <div className="min-h-screen bg-slate-50 animate-in pb-10">
                     <nav className="bg-[#00A896] p-5 text-white flex items-center justify-between sticky top-0 z-30 shadow-md">
@@ -398,18 +397,18 @@
                                                     <p className="text-slate-600 text-lg italic bg-slate-50 p-6 rounded-3xl border border-slate-100 leading-relaxed shadow-inner">"{selectedEq.descripcion}"</p>
                                                 )}
                                             </div>
-                                            <div className="p-6 rounded-[2rem] border-2 border-emerald-100 bg-emerald-50 flex flex-col items-center justify-center text-center relative text-slate-800">
-                                                <button onClick={() => setIsEditingAge(!isEditingAge)} className="absolute top-4 right-4 text-emerald-300 hover:text-emerald-600"><Icon name="Edit" size={14} /></button>
+                                            <div className={`p-6 rounded-[2rem] border-2 flex flex-col items-center justify-center text-center relative text-slate-800 ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).border} ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).bg}`}>
+                                                <button onClick={() => setIsEditingAge(!isEditingAge)} className={`absolute top-4 right-4 opacity-50 hover:opacity-100 ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text}`}><Icon name="Edit" size={14} /></button>
                                                 {isEditingAge ? (
                                                     <div className="w-full space-y-2 animate-in text-slate-800">
                                                         <input type="date" className="w-full p-2 bg-white rounded-lg text-xs font-bold text-center border text-slate-800" value={selectedEq.fechaAdquisicion} onChange={e => saveChange('equipments', selectedEq.id, { fechaAdquisicion: e.target.value })} />
-                                                        <button onClick={() => setIsEditingAge(false)} className="w-full bg-emerald-600 text-white py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider">Cerrar</button>
+                                                        <button onClick={() => setIsEditingAge(false)} className="w-full bg-slate-800 text-white py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider">Cerrar</button>
                                                     </div>
                                                 ) : (
                                                     <React.Fragment>
-                                                        <Icon name="History" className="text-emerald-600 mb-2" size={24} />
-                                                        <p className="text-5xl font-black text-emerald-600 leading-none">{calcularAntiguedad(selectedEq.fechaAdquisicion)}</p>
-                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-400">Años de Servicio</p>
+                                                        <Icon name="History" className={`${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} mb-2`} size={24} />
+                                                        <p className={`text-5xl font-black ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} leading-none`}>{calcularAntiguedad(selectedEq.fechaAdquisicion)}</p>
+                                                        <p className={`text-[9px] font-bold uppercase tracking-widest opacity-60 ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text}`}>Años de Servicio</p>
                                                     </React.Fragment>
                                                 )}
                                             </div>
@@ -478,7 +477,6 @@
                 </div>
             );
 
-            // VISTA: GESTIÓN DE RED
             if (view === 'net' && selectedOR) return (
                 <div className="animate-in bg-slate-50 min-h-screen pb-10">
                     <nav className="bg-[#00A896] p-5 text-white flex items-center justify-between sticky top-0 z-30 shadow-md">
@@ -536,7 +534,3 @@
     </script>
 </body>
 </html>
-    </div>
-  );
-}
-
