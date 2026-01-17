@@ -26,6 +26,13 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* Estilo para el logo sobresaliente */
+        .logo-overlap {
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
+            transform: translateY(25%);
+            z-index: 50;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -43,7 +50,8 @@
             measurementId: "G-XT3305XCX7"
         };
 
-        // Inicializar Firebase
+        const currentAppId = 'quirofanos-bf581';
+
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -230,32 +238,38 @@
             const selectedEq = equipments.find(e => e.id == selectedEqId);
 
             if (loading) return (
-                <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-white p-10 text-center">
+                <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-white p-10 text-center text-[#00A896]">
                     <div className="w-16 h-16 border-4 border-[#00A896] border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-black text-xl text-slate-800 tracking-tight uppercase">Iniciando Gestión...</p>
+                    <p className="font-black text-xl text-slate-800 tracking-tight uppercase tracking-widest text-slate-800">Sincronizando Sistema...</p>
                 </div>
             );
 
+            // --- VISTAS ---
+
             if (view === 'landing') return (
                 <div className="min-h-screen pb-20 animate-in">
-                    <header className="bg-[#00A896] p-6 shadow-md text-white sticky top-0 z-30 flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-white">
-                            <div className="w-12 h-12 glass rounded-xl flex items-center justify-center overflow-hidden cursor-pointer relative group" onClick={() => logoFileRef.current.click()}>
-                                {config.logo ? <img src={config.logo} className="w-20 h-20 object-contain p-1" style={{maxWidth: 'none'}} /> : <Icon name="Stethoscope" size={24} />}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"><Icon name="Camera" size={16} /></div>
+                    <header className="bg-[#00A896] h-20 shadow-md text-white sticky top-0 z-30 flex items-center px-6">
+                        <div className="flex items-center gap-10">
+                            {/* LOGO REDISEÑADO: Estilo Overlap Dinámico */}
+                            <div 
+                                className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center overflow-hidden cursor-pointer relative group logo-overlap border-4 border-slate-50 shadow-2xl"
+                                onClick={() => logoFileRef.current.click()}
+                            >
+                                {config.logo ? <img src={config.logo} className="w-full h-full object-contain p-2" /> : <Icon name="Stethoscope" size={40} className="text-[#00A896]" />}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"><Icon name="Camera" size={24} /></div>
                                 <input type="file" ref={logoFileRef} className="hidden" onChange={(e) => handleUpload(e, 'logo')} />
                             </div>
-                            <h1 className="text-xl font-black tracking-tight uppercase">Estado de Quirófanos</h1>
+                            <h1 className="text-xl font-black tracking-tight uppercase text-white drop-shadow-sm ml-2">Estado de Quirófanos</h1>
                         </div>
                     </header>
-                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+                    <div className="p-6 pt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
                         {rooms.map(or => (
                             <div key={or.id} onClick={() => { setSelectedORId(or.id); setView('detail'); }} className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-xl transition-all group">
                                 <div className="h-44 bg-slate-200 relative overflow-hidden">
                                     <img src={or.imagen} className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e) => e.target.style.opacity = 0.2} />
                                     <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-bold text-white shadow-lg ${or.estado === 'Operativo' ? 'bg-emerald-500' : 'bg-amber-500'}`}>{or.estado.toUpperCase()}</div>
                                 </div>
-                                <div className="p-6 flex justify-between items-center text-slate-800">
+                                <div className="p-6 flex justify-between items-center text-slate-800 text-slate-800">
                                     <div className="overflow-hidden"><h3 className="font-bold text-[#00A896] text-xl tracking-tighter truncate">{or.nombre}</h3><p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">{or.especialidad}</p></div>
                                     <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-[#00A896] group-hover:text-white transition-colors text-slate-400 group-hover:text-white"><Icon name="ChevronRight" size={18} /></div>
                                 </div>
@@ -282,7 +296,7 @@
                         </div>
                     </div>
                     <div className="px-6 pb-20 max-w-5xl mx-auto -mt-8 relative z-10 text-slate-800">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10 text-slate-800">
                             {['Operativo', 'Mantenimiento', 'No disponible'].map(st => (
                                 <button key={st} onClick={() => db.collection('rooms').doc(selectedOR.id.toString()).update({estado: st})} className={`p-4 rounded-2xl font-bold text-xs transition-all border-2 ${selectedOR.estado === st ? 'bg-slate-900 text-white border-[#00A896] shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}>{st}</button>
                             ))}
@@ -321,9 +335,9 @@
                         <div className="w-10"></div>
                     </nav>
                     <div className="max-w-5xl mx-auto p-4 sm:p-6 text-slate-800">
-                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
+                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100 text-slate-800">
                             <div className="aspect-video bg-slate-200 relative group">
-                                {isUploading && <div className="absolute inset-0 glass z-20 flex flex-col items-center justify-center text-white"><div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div></div>}
+                                {isUploading && <div className="absolute inset-0 glass z-20 flex flex-col items-center justify-center text-white"><div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin text-white"></div></div>}
                                 <img src={selectedEq.imagen} className="w-full h-full object-cover" onError={(e) => e.target.style.opacity = 0.1} />
                                 <div className="absolute top-6 left-6 flex flex-col gap-2 sm:flex-row">
                                     <span className="bg-[#00A896] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl text-white">{selectedEq.tipo}</span>
@@ -332,13 +346,13 @@
                                 <button onClick={() => eqFileRef.current.click()} className="absolute bottom-6 right-6 p-3.5 bg-[#00A896] text-white rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all text-white"><Icon name="Camera" size={22} /></button>
                                 <input type="file" ref={eqFileRef} className="hidden" onChange={(e) => handleUpload(e, 'eq', selectedEq.id)} />
                             </div>
-                            <div className="p-8 sm:p-12 text-slate-800">
+                            <div className="p-8 sm:p-12 text-slate-800 text-slate-800">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10 text-slate-800">
                                     <h2 className="text-3xl sm:text-4xl font-black text-slate-900 leading-tight">{selectedEq.nombre}</h2>
                                     <div className="relative w-full md:w-auto">
                                         <button onClick={() => setShowStatusModal(!showStatusModal)} className="w-full md:w-auto px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 hover:brightness-110 transition-all uppercase text-[10px] tracking-widest text-white"><Icon name="Check" size={16} /> {selectedEq.estado}</button>
                                         {showStatusModal && (
-                                            <div className="absolute top-full right-0 bg-white p-2 rounded-2xl shadow-2xl border z-50 animate-in mt-2 w-48 border-slate-100">
+                                            <div className="absolute top-full right-0 bg-white p-2 rounded-2xl shadow-2xl border z-50 animate-in mt-2 w-48 border-slate-100 text-slate-800">
                                                 {['Operativo', 'Mantenimiento', 'No disponible'].map(s => (
                                                     <button key={s} onClick={() => { db.collection('equipments').doc(selectedEq.id).update({estado: s}); setShowStatusModal(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-50 font-bold text-xs rounded-lg text-slate-700">{s}</button>
                                                 ))}
@@ -365,7 +379,7 @@
                                         <div className="flex justify-between w-full mb-4 opacity-40 text-slate-800"><Icon name="History" size={18} /><button onClick={() => setIsEditingAge(!isEditingAge)} className="text-slate-800"><Icon name="Edit" size={14} /></button></div>
                                         {isEditingAge ? (
                                             <div className="w-full space-y-2 text-slate-800">
-                                                <input type="date" className="w-full p-2 rounded-xl bg-white border text-xs font-bold text-slate-800 text-center" value={selectedEq.fechaAdquisicion} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({fechaAdquisicion: e.target.value})} />
+                                                <input type="date" className="w-full p-2 rounded-xl bg-white border text-xs font-bold text-slate-800 text-center text-slate-800" value={selectedEq.fechaAdquisicion} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({fechaAdquisicion: e.target.value})} />
                                                 <button onClick={() => setIsEditingAge(false)} className="bg-slate-800 text-white w-full py-1.5 rounded-lg text-[9px] font-bold text-white uppercase">Cerrar</button>
                                             </div>
                                         ) : (
@@ -373,28 +387,28 @@
                                         )}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-slate-800">
-                                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-slate-800 text-slate-800">
+                                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group text-slate-800">
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="flex items-center gap-3 text-slate-400"><Icon name="Calendar" size={20} /><span className="text-[9px] font-bold uppercase tracking-widest text-[#00A896]">Mantenimiento Preventivo</span></div>
-                                            <button onClick={() => setIsEditingMaint(!isEditingMaint)} className="p-2 text-slate-300 hover:text-[#00A896] transition-colors"><Icon name="Edit" size={14} /></button>
+                                            <button onClick={() => setIsEditingMaint(!isEditingMaint)} className="p-2 text-slate-300 hover:text-[#00A896] transition-colors text-slate-400"><Icon name="Edit" size={14} /></button>
                                         </div>
                                         {isEditingMaint ? (
-                                            <div className="space-y-4 p-2 bg-slate-50 rounded-2xl animate-in text-slate-800">
-                                                <div><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Última Realización</label><input type="date" className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm" value={selectedEq.ultimaRevision} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({ultimaRevision: e.target.value})} /></div>
+                                            <div className="space-y-4 p-2 bg-slate-50 rounded-2xl animate-in text-slate-800 text-slate-800">
+                                                <div><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Última Realización</label><input type="date" className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-800" value={selectedEq.ultimaRevision} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({ultimaRevision: e.target.value})} /></div>
                                                 <div><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Periodicidad</label><select className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-800" value={selectedEq.periodicidad} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({periodicidad: e.target.value})}><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="bienal">Bienal</option></select></div>
-                                                <button onClick={() => setIsEditingMaint(false)} className="w-full bg-[#00A896] text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-widest"><Icon name="Check" size={14} className="inline mr-1" /> Guardar Ciclo</button>
+                                                <button onClick={() => setIsEditingMaint(false)} className="w-full bg-[#00A896] text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-widest text-white"><Icon name="Check" size={14} className="inline mr-1" /> Guardar Ciclo</button>
                                             </div>
                                         ) : (
-                                            <React.Fragment><p className="text-3xl font-black text-slate-900">{new Date(selectedEq.ultimaRevision).toLocaleDateString('es-ES')}</p><div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between"><div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Próxima Inspección ({selectedEq.periodicidad})</p><p className="text-emerald-600 font-bold flex items-center gap-1.5 text-sm"><Icon name="Check" size={14} /> {calcularProximaRevision(selectedEq.ultimaRevision, selectedEq.periodicidad)}</p></div></div></React.Fragment>
+                                            <React.Fragment><p className="text-3xl font-black text-slate-900">{new Date(selectedEq.ultimaRevision).toLocaleDateString('es-ES')}</p><div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between text-slate-800"><div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Próxima Inspección ({selectedEq.periodicidad})</p><p className="text-emerald-600 font-bold flex items-center gap-1.5 text-sm text-emerald-600"><Icon name="Check" size={14} /> {calcularProximaRevision(selectedEq.ultimaRevision, selectedEq.periodicidad)}</p></div></div></React.Fragment>
                                         )}
                                     </div>
-                                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:border-[#00A896] transition-all group flex flex-col justify-center text-slate-800 relative">
-                                        <div className="flex items-center gap-3 text-slate-400 mb-4"><Icon name="FileText" size={20} /><span className="text-[9px] font-bold uppercase tracking-widest">Manual Técnico (PDF)</span></div>
+                                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:border-[#00A896] transition-all group flex flex-col justify-center text-slate-800 relative text-slate-800">
+                                        <div className="flex items-center gap-3 text-slate-400 mb-4"><Icon name="FileText" size={20} /><span className="text-[9px] font-bold uppercase tracking-widest text-[#00A896]">Manual Técnico (PDF)</span></div>
                                         {selectedEq.manualUrl ? (
-                                            <div className="space-y-3"><button onClick={() => { const win = window.open(); win.document.write(`<iframe src="${selectedEq.manualUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`); }} className="flex items-center gap-3 text-[#00A896] font-bold text-xl hover:scale-105 transition-transform text-left">Ver Manual <Icon name="ExternalLink" size={20} /></button><button onClick={() => manualFileRef.current.click()} className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1 hover:text-[#00A896]"><Icon name="Edit" size={12} /> Reemplazar archivo</button></div>
+                                            <div className="space-y-3"><button onClick={() => { const win = window.open(); win.document.write(`<iframe src="${selectedEq.manualUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`); }} className="flex items-center gap-3 text-[#00A896] font-bold text-xl hover:scale-105 transition-transform text-left text-slate-800">Ver Manual <Icon name="ExternalLink" size={20} className="text-[#00A896]" /></button><button onClick={() => manualFileRef.current.click()} className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1 hover:text-[#00A896] text-slate-400"><Icon name="Edit" size={12} /> Reemplazar archivo</button></div>
                                         ) : (
-                                            <button onClick={() => manualFileRef.current.click()} className="flex items-center gap-3 text-slate-400 font-bold text-xl hover:text-[#00A896] transition-colors text-left">Subir Manual <Icon name="Camera" size={20} /></button>
+                                            <button onClick={() => manualFileRef.current.click()} className="flex items-center gap-3 text-slate-400 font-bold text-xl hover:text-[#00A896] transition-colors text-left text-slate-400">Subir Manual <Icon name="Camera" size={20} /></button>
                                         )}
                                         <input type="file" ref={manualFileRef} className="hidden" accept="application/pdf" onChange={(e) => handleUpload(e, 'manual', selectedEq.id)} />
                                         <p className="text-[10px] text-slate-400 mt-2 font-medium leading-tight">Sube la ficha técnica o manual en formato PDF.</p>
@@ -406,8 +420,8 @@
                 </div>
             );
 
-            if (view === 'net') return (
-                <div className="min-h-screen bg-slate-50 animate-in text-slate-800 pb-10">
+            if (view === 'net' && selectedOR) return (
+                <div className="min-h-screen bg-slate-50 animate-in text-slate-800 pb-10 text-slate-800">
                     <nav className="bg-[#00A896] p-5 text-white flex items-center justify-between sticky top-0 z-30 shadow-md">
                         <button onClick={() => setView('detail')} className="flex items-center gap-2 font-bold hover:text-white/80 transition-colors text-sm text-white"><Icon name="ChevronLeft" size={20} /> Volver</button>
                         <span className="font-extrabold uppercase tracking-widest text-2xl text-white">RED {selectedOR?.nombre}</span>
@@ -421,20 +435,20 @@
                                 <div key={b.id} className={`bg-white p-6 sm:p-8 rounded-[2rem] border-2 transition-all relative overflow-hidden ${isEditing ? 'border-[#00A896] shadow-2xl' : 'border-slate-100 hover:shadow-lg'}`}>
                                     <button onClick={() => { if(isEditing) setEditingBocaId(null); else { setEditingBocaId(b.id); setTempBoca(b.boca); setTempUso(b.uso); setTempVerificado(b.verificado); }}} className="absolute top-5 right-5 p-2 text-slate-300 hover:text-[#00A896] transition-all text-slate-400"><Icon name={isEditing ? "X" : "Edit"} size={18} /></button>
                                     {isEditing ? (
-                                        <div className="space-y-4 animate-in">
-                                            <div><label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Boca ID</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm" value={tempBoca} onChange={e => setTempBoca(e.target.value)} /></div>
-                                            <div><label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Uso Asignado</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm" value={tempUso} onChange={e => setTempUso(e.target.value)} /></div>
+                                        <div className="space-y-4 animate-in text-slate-800 text-slate-800">
+                                            <div><label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Boca ID</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm text-slate-800" value={tempBoca} onChange={e => setTempBoca(e.target.value)} /></div>
+                                            <div><label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Uso Asignado</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm text-slate-800" value={tempUso} onChange={e => setTempUso(e.target.value)} /></div>
                                             <div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verificado</span><button onClick={() => setTempVerificado(!tempVerificado)} className={`w-10 h-5 rounded-full transition-all ${tempVerificado ? 'bg-[#00A896]' : 'bg-slate-300'}`} /></div>
                                             <button onClick={() => { db.collection('connections').doc(b.id).update({boca: tempBoca, uso: tempUso, verificado: tempVerificado}); setEditingBocaId(null); }} className="w-full bg-[#00A896] text-white py-2.5 rounded-xl font-bold shadow-md text-sm text-white uppercase tracking-widest">Guardar</button>
                                         </div>
                                     ) : (
                                         <React.Fragment>
                                             <div className="flex justify-between items-center mb-6">
-                                                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100">{b.boca}</div>
+                                                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100 text-blue-600">{b.boca}</div>
                                                 <div className={`px-3 py-1 rounded-full text-[9px] font-bold text-white shadow-sm ${isLibre ? 'bg-emerald-500' : 'bg-blue-600'} text-white`}>{isLibre ? 'LIBRE' : 'ACTIVA'}</div>
                                             </div>
                                             <p className="text-xl font-bold text-slate-800 leading-tight mb-8 min-h-[2.5rem]">{b.uso}</p>
-                                            <div className="mt-auto pt-5 border-t flex items-center justify-between text-slate-300">
+                                            <div className="mt-auto pt-5 border-t flex items-center justify-between text-slate-300 text-slate-300">
                                                 <div className="flex items-center gap-2.5"><div className={`w-2 h-2 rounded-full ${isLibre ? 'bg-emerald-400 animate-pulse' : 'bg-blue-400'}`} /><span className="text-[9px] font-bold uppercase tracking-widest tracking-tighter">Estado Enlace</span></div>
                                                 {b.verificado && <Icon name="Check" size={14} className="text-emerald-500" />}
                                             </div>
@@ -447,7 +461,13 @@
                 </div>
             );
 
-            return null;
+            // Página en blanco preventiva si no hay selección
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-white p-10 text-center">
+                    <div className="w-16 h-16 border-4 border-[#00A896] border-t-transparent rounded-full animate-spin"></div>
+                    <p className="font-bold text-slate-400 ml-4">Redirigiendo...</p>
+                </div>
+            );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
