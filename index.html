@@ -29,7 +29,7 @@
         
         /* Estilo para el logo sobresaliente */
         .logo-overlap {
-            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.15));
             transform: translateY(25%);
             z-index: 50;
         }
@@ -115,10 +115,23 @@
             const [loading, setLoading] = useState(true);
             const [isUploading, setIsUploading] = useState(false);
 
+            // Estados edición
+            const [editingBocaId, setEditingBocaId] = useState(null);
+            const [tempBoca, setTempBoca] = useState('');
+            const [tempUso, setTempUso] = useState('');
+            const [tempVerificado, setTempVerificado] = useState(false);
+            const [isEditingDesc, setIsEditingDesc] = useState(false);
+            const [isEditingMaint, setIsEditingMaint] = useState(false);
+            const [isEditingAge, setIsEditingAge] = useState(false);
+            const [showStatusModal, setShowStatusModal] = useState(false);
+
             const fileRef = useRef();
             const eqFileRef = useRef();
             const logoFileRef = useRef();
             const manualFileRef = useRef();
+
+            // RUTA ESTRICTA SEGÚN REGLA 1
+            const getColl = (name) => db.collection('artifacts').doc(currentAppId).collection('public').doc('data').collection(name);
 
             useEffect(() => {
                 const init = async () => {
@@ -126,9 +139,10 @@
                         const timer = setTimeout(() => { if(loading) setLoading(false); }, 5000);
                         await auth.signInAnonymously();
                         
-                        db.collection('rooms').onSnapshot(snap => {
+                        // Sincronizar Salas
+                        getColl('rooms').onSnapshot(snap => {
                             if (snap.empty) {
-                                ROOMS_BASE.forEach(r => db.collection('rooms').doc(r.id.toString()).set({...r, imagen: ""}, {merge: true}));
+                                ROOMS_BASE.forEach(r => getColl('rooms').doc(r.id.toString()).set({...r, imagen: ""}, {merge: true}));
                             } else {
                                 setRooms(snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => parseInt(a.id) - parseInt(b.id)));
                             }
@@ -136,14 +150,15 @@
                             clearTimeout(timer);
                         }, () => setLoading(false));
 
-                        db.collection('equipments').onSnapshot(snap => {
+                        // Sincronizar Equipos
+                        getColl('equipments').onSnapshot(snap => {
                             if (snap.empty) {
                                 ROOMS_BASE.forEach(r => {
                                     EQUIPOS_NOMBRES.forEach((name, idx) => {
                                         const id = `${r.id}_e${idx}`;
-                                        db.collection('equipments').doc(id).set({
+                                        getColl('equipments').doc(id).set({
                                             id, roomId: r.id, nombre: name, tipo: "Activo Principal",
-                                            descripcion: `Equipamiento del ${r.nombre}.`, ultimaRevision: "2024-01-01",
+                                            descripcion: `Equipamiento técnico del ${r.nombre}.`, ultimaRevision: "2024-01-01",
                                             periodicidad: "anual", fechaAdquisicion: "2020-01-01", estado: "Operativo", imagen: "", manualUrl: ""
                                         }, {merge: true});
                                     });
@@ -153,12 +168,13 @@
                             }
                         });
 
-                        db.collection('connections').onSnapshot(snap => {
+                        // Sincronizar Conexiones
+                        getColl('connections').onSnapshot(snap => {
                             if (snap.empty) {
                                 ROOMS_BASE.forEach(r => {
                                     for(let i=1; i<=6; i++) {
                                         const id = `${r.id}_b${i}`;
-                                        db.collection('connections').doc(id).set({ id, roomId: r.id, boca: `RJ45-${i}`, uso: "Disponible", verificado: false }, {merge: true});
+                                        getColl('connections').doc(id).set({ id, roomId: r.id, boca: `RJ45-${i}`, uso: "Disponible", verificado: false }, {merge: true});
                                     }
                                 });
                             } else {
@@ -166,10 +182,11 @@
                             }
                         });
 
-                        db.collection('settings').doc('global').onSnapshot(doc => {
+                        getColl('settings').doc('global').onSnapshot(doc => {
                             if (doc.exists) setConfig(doc.data());
                         });
-                    } catch (e) { setLoading(false); }
+
+                    } catch (err) { setLoading(false); }
                 };
                 init();
             }, []);
@@ -200,12 +217,12 @@
                 reader.onload = async (event) => {
                     try {
                         if (type === 'manual') {
-                            await db.collection('equipments').doc(id).update({ manualUrl: event.target.result });
+                            await getColl('equipments').doc(id).update({ manualUrl: event.target.result });
                         } else {
                             const compressed = await compressImage(event.target.result);
-                            if (type === 'room') await db.collection('rooms').doc(id.toString()).update({ imagen: compressed });
-                            else if (type === 'eq') await db.collection('equipments').doc(id).update({ imagen: compressed });
-                            else if (type === 'logo') await db.collection('settings').doc('global').set({ logo: compressed }, {merge: true});
+                            if (type === 'room') await getColl('rooms').doc(id.toString()).update({ imagen: compressed });
+                            else if (type === 'eq') await getColl('equipments').doc(id).update({ imagen: compressed });
+                            else if (type === 'logo') await getColl('settings').doc('global').set({ logo: compressed }, {merge: true});
                         }
                     } catch (e) {}
                     setIsUploading(false);
@@ -255,7 +272,7 @@
                                 className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center overflow-hidden cursor-pointer relative group logo-overlap border-4 border-slate-50 shadow-2xl"
                                 onClick={() => logoFileRef.current.click()}
                             >
-                                {config.logo ? <img src={config.logo} className="w-full h-full object-contain p-2" /> : <Icon name="Stethoscope" size={40} className="text-[#00A896]" />}
+                                {config.logo ? <img src={config.logo} className="w-full h-full object-contain p-2" style={{maxWidth: 'none'}} /> : <Icon name="Stethoscope" size={40} className="text-[#00A896]" />}
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"><Icon name="Camera" size={24} /></div>
                                 <input type="file" ref={logoFileRef} className="hidden" onChange={(e) => handleUpload(e, 'logo')} />
                             </div>
@@ -298,7 +315,7 @@
                     <div className="px-6 pb-20 max-w-5xl mx-auto -mt-8 relative z-10 text-slate-800">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10 text-slate-800">
                             {['Operativo', 'Mantenimiento', 'No disponible'].map(st => (
-                                <button key={st} onClick={() => db.collection('rooms').doc(selectedOR.id.toString()).update({estado: st})} className={`p-4 rounded-2xl font-bold text-xs transition-all border-2 ${selectedOR.estado === st ? 'bg-slate-900 text-white border-[#00A896] shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}>{st}</button>
+                                <button key={st} onClick={() => getColl('rooms').doc(selectedOR.id.toString()).update({estado: st})} className={`p-4 rounded-2xl font-bold text-xs transition-all border-2 ${selectedOR.estado === st ? 'bg-slate-900 text-white border-[#00A896] shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}>{st}</button>
                             ))}
                         </div>
                         <button onClick={() => setView('net')} className="w-full p-6 bg-slate-50 border border-slate-100 rounded-3xl mb-10 flex items-center gap-5 hover:shadow-md transition-all group">
@@ -337,7 +354,7 @@
                     <div className="max-w-5xl mx-auto p-4 sm:p-6 text-slate-800">
                         <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100 text-slate-800">
                             <div className="aspect-video bg-slate-200 relative group">
-                                {isUploading && <div className="absolute inset-0 glass z-20 flex flex-col items-center justify-center text-white"><div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin text-white"></div></div>}
+                                {isUploading && <div className="absolute inset-0 glass z-20 flex flex-col items-center justify-center text-white"><div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div></div>}
                                 <img src={selectedEq.imagen} className="w-full h-full object-cover" onError={(e) => e.target.style.opacity = 0.1} />
                                 <div className="absolute top-6 left-6 flex flex-col gap-2 sm:flex-row">
                                     <span className="bg-[#00A896] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl text-white">{selectedEq.tipo}</span>
@@ -354,7 +371,7 @@
                                         {showStatusModal && (
                                             <div className="absolute top-full right-0 bg-white p-2 rounded-2xl shadow-2xl border z-50 animate-in mt-2 w-48 border-slate-100 text-slate-800">
                                                 {['Operativo', 'Mantenimiento', 'No disponible'].map(s => (
-                                                    <button key={s} onClick={() => { db.collection('equipments').doc(selectedEq.id).update({estado: s}); setShowStatusModal(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-50 font-bold text-xs rounded-lg text-slate-700">{s}</button>
+                                                    <button key={s} onClick={() => { getColl('equipments').doc(selectedEq.id).update({estado: s}); setShowStatusModal(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-50 font-bold text-xs rounded-lg text-slate-700">{s}</button>
                                                 ))}
                                             </div>
                                         )}
@@ -368,7 +385,7 @@
                                         </div>
                                         {isEditingDesc ? (
                                             <div className="space-y-4 text-slate-800">
-                                                <textarea className="w-full p-6 bg-slate-50 border-2 border-[#00A896] rounded-2xl font-medium focus:outline-none text-sm text-slate-800" value={selectedEq.descripcion} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({descripcion: e.target.value})} />
+                                                <textarea className="w-full p-6 bg-slate-50 border-2 border-[#00A896] rounded-2xl font-medium focus:outline-none text-sm text-slate-800" value={selectedEq.descripcion} onChange={(e) => getColl('equipments').doc(selectedEq.id).update({descripcion: e.target.value})} />
                                                 <button onClick={() => setIsEditingDesc(false)} className="bg-[#00A896] text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 text-xs text-white"><Icon name="Save" size={14} /> Guardar</button>
                                             </div>
                                         ) : (
@@ -379,7 +396,7 @@
                                         <div className="flex justify-between w-full mb-4 opacity-40 text-slate-800"><Icon name="History" size={18} /><button onClick={() => setIsEditingAge(!isEditingAge)} className="text-slate-800"><Icon name="Edit" size={14} /></button></div>
                                         {isEditingAge ? (
                                             <div className="w-full space-y-2 text-slate-800">
-                                                <input type="date" className="w-full p-2 rounded-xl bg-white border text-xs font-bold text-slate-800 text-center text-slate-800" value={selectedEq.fechaAdquisicion} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({fechaAdquisicion: e.target.value})} />
+                                                <input type="date" className="w-full p-2 rounded-xl bg-white border text-xs font-bold text-slate-800 text-center text-slate-800" value={selectedEq.fechaAdquisicion} onChange={(e) => getColl('equipments').doc(selectedEq.id).update({fechaAdquisicion: e.target.value})} />
                                                 <button onClick={() => setIsEditingAge(false)} className="bg-slate-800 text-white w-full py-1.5 rounded-lg text-[9px] font-bold text-white uppercase">Cerrar</button>
                                             </div>
                                         ) : (
@@ -395,8 +412,8 @@
                                         </div>
                                         {isEditingMaint ? (
                                             <div className="space-y-4 p-2 bg-slate-50 rounded-2xl animate-in text-slate-800 text-slate-800">
-                                                <div><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Última Realización</label><input type="date" className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-800" value={selectedEq.ultimaRevision} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({ultimaRevision: e.target.value})} /></div>
-                                                <div><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Periodicidad</label><select className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-800" value={selectedEq.periodicidad} onChange={(e) => db.collection('equipments').doc(selectedEq.id).update({periodicidad: e.target.value})}><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="bienal">Bienal</option></select></div>
+                                                <div><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Última Realización</label><input type="date" className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-800" value={selectedEq.ultimaRevision} onChange={(e) => getColl('equipments').doc(selectedEq.id).update({ultimaRevision: e.target.value})} /></div>
+                                                <div><label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Periodicidad</label><select className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-800" value={selectedEq.periodicidad} onChange={(e) => getColl('equipments').doc(selectedEq.id).update({periodicidad: e.target.value})}><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="bienal">Bienal</option></select></div>
                                                 <button onClick={() => setIsEditingMaint(false)} className="w-full bg-[#00A896] text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-widest text-white"><Icon name="Check" size={14} className="inline mr-1" /> Guardar Ciclo</button>
                                             </div>
                                         ) : (
@@ -406,12 +423,12 @@
                                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:border-[#00A896] transition-all group flex flex-col justify-center text-slate-800 relative text-slate-800">
                                         <div className="flex items-center gap-3 text-slate-400 mb-4"><Icon name="FileText" size={20} /><span className="text-[9px] font-bold uppercase tracking-widest text-[#00A896]">Manual Técnico (PDF)</span></div>
                                         {selectedEq.manualUrl ? (
-                                            <div className="space-y-3"><button onClick={() => { const win = window.open(); win.document.write(`<iframe src="${selectedEq.manualUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`); }} className="flex items-center gap-3 text-[#00A896] font-bold text-xl hover:scale-105 transition-transform text-left text-slate-800">Ver Manual <Icon name="ExternalLink" size={20} className="text-[#00A896]" /></button><button onClick={() => manualFileRef.current.click()} className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1 hover:text-[#00A896] text-slate-400"><Icon name="Edit" size={12} /> Reemplazar archivo</button></div>
+                                            <div className="space-y-3 text-slate-800"><button onClick={() => { const win = window.open(); win.document.write(`<iframe src="${selectedEq.manualUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`); }} className="flex items-center gap-3 text-[#00A896] font-bold text-xl hover:scale-105 transition-transform text-left text-slate-800">Ver Manual <Icon name="ExternalLink" size={20} className="text-[#00A896]" /></button><button onClick={() => manualFileRef.current.click()} className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1 hover:text-[#00A896] text-slate-400"><Icon name="Edit" size={12} /> Reemplazar archivo</button></div>
                                         ) : (
                                             <button onClick={() => manualFileRef.current.click()} className="flex items-center gap-3 text-slate-400 font-bold text-xl hover:text-[#00A896] transition-colors text-left text-slate-400">Subir Manual <Icon name="Camera" size={20} /></button>
                                         )}
                                         <input type="file" ref={manualFileRef} className="hidden" accept="application/pdf" onChange={(e) => handleUpload(e, 'manual', selectedEq.id)} />
-                                        <p className="text-[10px] text-slate-400 mt-2 font-medium leading-tight">Sube la ficha técnica o manual en formato PDF.</p>
+                                        <p className="text-[10px] text-slate-400 mt-2 font-medium leading-tight">Sube la ficha técnica o manual de usuario en formato PDF.</p>
                                     </div>
                                 </div>
                             </div>
@@ -439,11 +456,11 @@
                                             <div><label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Boca ID</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm text-slate-800" value={tempBoca} onChange={e => setTempBoca(e.target.value)} /></div>
                                             <div><label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Uso Asignado</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm text-slate-800" value={tempUso} onChange={e => setTempUso(e.target.value)} /></div>
                                             <div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verificado</span><button onClick={() => setTempVerificado(!tempVerificado)} className={`w-10 h-5 rounded-full transition-all ${tempVerificado ? 'bg-[#00A896]' : 'bg-slate-300'}`} /></div>
-                                            <button onClick={() => { db.collection('connections').doc(b.id).update({boca: tempBoca, uso: tempUso, verificado: tempVerificado}); setEditingBocaId(null); }} className="w-full bg-[#00A896] text-white py-2.5 rounded-xl font-bold shadow-md text-sm text-white uppercase tracking-widest">Guardar</button>
+                                            <button onClick={() => { getColl('connections').doc(b.id).update({boca: tempBoca, uso: tempUso, verificado: tempVerificado}); setEditingBocaId(null); }} className="w-full bg-[#00A896] text-white py-2.5 rounded-xl font-bold shadow-md text-sm text-white uppercase tracking-widest text-white">Guardar</button>
                                         </div>
                                     ) : (
                                         <React.Fragment>
-                                            <div className="flex justify-between items-center mb-6">
+                                            <div className="flex justify-between items-center mb-6 text-slate-800">
                                                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100 text-blue-600">{b.boca}</div>
                                                 <div className={`px-3 py-1 rounded-full text-[9px] font-bold text-white shadow-sm ${isLibre ? 'bg-emerald-500' : 'bg-blue-600'} text-white`}>{isLibre ? 'LIBRE' : 'ACTIVA'}</div>
                                             </div>
