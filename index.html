@@ -324,11 +324,19 @@
                                         </div>
                                         <div className="ml-4 flex-grow overflow-hidden text-slate-800">
                                             <h4 className="font-bold text-slate-800 text-base group-hover:text-[#00A896] truncate transition-colors">{eq.nombre}</h4>
-                                            <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">
-                                                {exists ? <span className="flex items-center gap-1.5">{eq.tipo} • <span className={ageColors.text}>{anios} años</span></span> : <span className="text-red-500 flex items-center gap-1 font-black uppercase"><Icon name="EyeOff" size={10} /> NO DISPONIBLE EN SALA</span>}
+                                            <p className="text-[9px] font-bold text-slate-400 tracking-wider">
+                                                {exists ? (
+                                                    <span className="flex items-center gap-1.5 overflow-hidden">
+                                                        <span className="truncate italic max-w-[140px]">"{eq.descripcion}"</span>
+                                                        <span className="shrink-0">•</span>
+                                                        <span className={ageColors.text + " uppercase shrink-0"}>{anios} años</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-red-500 flex items-center gap-1 font-black uppercase"><Icon name="EyeOff" size={10} /> NO DISPONIBLE EN SALA</span>
+                                                )}
                                             </p>
                                         </div>
-                                        <Icon name="ChevronRight" size={16} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                                        <Icon name="ChevronRight" size={16} className="text-slate-300 group-hover:translate-x-1 transition-transform shrink-0" />
                                     </div>
                                 );
                             })}
@@ -526,7 +534,7 @@
     </script>
 </body>
 </html>
-</body>
 </html>
+
 
 
