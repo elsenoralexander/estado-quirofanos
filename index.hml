@@ -33,17 +33,15 @@
 
     <script type="text/babel">
         // --- 1. CONFIGURACIÓN DE FIREBASE ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config) 
-            : {
-                apiKey: "TU_API_KEY",
-                authDomain: "TU_PROYECTO.firebaseapp.com",
-                projectId: "TU_PROYECTO",
-                storageBucket: "TU_PROYECTO.appspot.com",
-                messagingSenderId: "TU_MESSAGING_ID",
-                appId: "TU_APP_ID"
-            };
-
+        const firebaseConfig = {
+  apiKey: "AIzaSyDUtotD90gGjoCpFGOlJ7-N8SJfu9SHpuM",
+  authDomain: "quirofanos-bf581.firebaseapp.com",
+  projectId: "quirofanos-bf581",
+  storageBucket: "quirofanos-bf581.firebasestorage.app",
+  messagingSenderId: "418576214169",
+  appId: "1:418576214169:web:6f9e6ea05149ed17717008",
+  measurementId: "G-XT3305XCX7"
+};
         const currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'gestor-hospital-quirofanos';
 
         if (!firebase.apps.length) {
