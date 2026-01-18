@@ -32,7 +32,6 @@
             transform: translateY(25%);
             z-index: 50;
         }
-        .tab-active { color: #00A896; border-bottom: 3px solid #00A896; }
     </style>
 </head>
 <body>
@@ -41,7 +40,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- 1. CONFIGURACIÓN DE FIREBASE (PROYECTO: quirofanos-bf581) ---
+        // --- 1. CONFIGURACIÓN DE FIREBASE (quirofanos-bf581) ---
         const firebaseConfig = {
             apiKey: "AIzaSyDUtotD90gGjoCpFGOlJ7-N8SJfu9SHpuM",
             authDomain: "quirofanos-bf581.firebaseapp.com",
@@ -74,7 +73,7 @@
                 X: <React.Fragment><path d="M18 6 6 18"/><path d="M6 6l12 12"/></React.Fragment>,
                 Check: <polyline points="20 6 9 17 4 12"/>,
                 Info: <React.Fragment><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></React.Fragment>,
-                ExternalLink: <React.Fragment><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 1 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></React.Fragment>,
+                ExternalLink: <React.Fragment><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></React.Fragment>,
                 Calendar: <React.Fragment><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></React.Fragment>,
                 FileText: <React.Fragment><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></React.Fragment>,
                 EyeOff: <React.Fragment><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></React.Fragment>,
@@ -129,19 +128,24 @@
                 const init = async () => {
                     try {
                         await auth.signInAnonymously();
+                        
                         getColl('rooms').onSnapshot(snap => {
                             if (!snap.empty) setRooms(snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => parseInt(a.id) - parseInt(b.id)));
                             setLoading(false);
                         });
+
                         getColl('equipments').onSnapshot(snap => {
                             if (!snap.empty) setEquipments(snap.docs.map(d => ({id: d.id, ...d.data()})));
                         });
+
                         getColl('connections').onSnapshot(snap => {
                             if (!snap.empty) setConnections(snap.docs.map(d => ({id: d.id, ...d.data()})));
                         });
+
                         getColl('settings').doc('global').onSnapshot(doc => {
                             if (doc.exists) setConfig(doc.data());
                         });
+
                         getColl('settings').doc('families').onSnapshot(doc => {
                             if (doc.exists) setFamilyImages(doc.data());
                         });
@@ -162,19 +166,20 @@
             const handleUpload = async (e, type, id) => {
                 const file = e.target.files[0];
                 if (!file) return;
+
                 if (type === 'manual' && file.size > 1000000) {
                     document.getElementById('size-alert').style.display = 'flex';
                     return;
                 }
+
                 setIsUploading(true);
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     try {
                         if (type === 'manual') {
                             await saveChange('equipments', id, { manualUrl: event.target.result, manualExternalUrl: "" });
-                        } else if (type === 'family') {
-                            await saveChange('settings', 'families', { [id]: event.target.result });
                         } else {
+                            // Compresión universal para todas las fotos (quirófanos, equipos y familias)
                             const img = new Image();
                             img.src = event.target.result;
                             img.onload = async () => {
@@ -184,8 +189,10 @@
                                 canvas.width = width; canvas.height = height;
                                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
                                 const compressed = canvas.toDataURL('image/jpeg', 0.6);
+                                
                                 if (type === 'room') await saveChange('rooms', id.toString(), { imagen: compressed });
                                 else if (type === 'eq') await saveChange('equipments', id, { imagen: compressed });
+                                else if (type === 'family') await saveChange('settings', 'families', { [id]: compressed });
                             };
                         }
                     } catch (err) { console.error(err); }
@@ -237,19 +244,18 @@
             const selectedEq = equipments.find(e => e.id == selectedEqId);
 
             if (loading) return (
-                <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-white p-10 text-center text-[#00A896]">
+                <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-white p-10 text-center">
                     <div className="w-16 h-16 border-4 border-[#00A896] border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-black text-xl text-slate-800 tracking-widest uppercase">Sincronizando Sistema Hospitalario...</p>
+                    <p className="font-black text-xl text-slate-800 tracking-widest uppercase">Cargando Quirónsalud...</p>
                 </div>
             );
 
             // --- VISTAS ---
 
-            // LANDING (Quirófanos o Familias)
             if (view === 'landing') return (
-                <div className="min-h-screen animate-in bg-slate-50 pb-20 text-left">
-                    <header className="bg-[#00A896] h-32 md:h-20 shadow-md text-white sticky top-0 z-30 flex flex-col md:flex-row items-center px-6 gap-4 md:gap-10 text-left">
-                        <div className="flex items-center gap-4 text-left">
+                <div className="min-h-screen animate-in bg-slate-50 pb-20">
+                    <header className="bg-[#00A896] h-32 md:h-20 shadow-md text-white sticky top-0 z-30 flex flex-col md:flex-row items-center px-6 gap-4 md:gap-10">
+                        <div className="flex items-center gap-4">
                             <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-3xl flex items-center justify-center overflow-hidden logo-overlap border-4 border-slate-50 shadow-2xl shrink-0">
                                 {config.logo ? <img src={config.logo} className="w-full h-full object-contain p-1" /> : <Icon name="Stethoscope" size={32} className="text-[#00A896]" />}
                             </div>
@@ -264,7 +270,6 @@
                                 <Icon name="Layers" size={14}/> FAMILIAS
                             </button>
                         </div>
-
                         {syncing && <div className="ml-auto bg-white/20 px-4 py-1 rounded-full animate-pulse flex items-center gap-2 shrink-0"><Icon name="RefreshCw" size={12} className="animate-spin text-white"/><span className="text-[10px] font-bold uppercase text-white tracking-widest">Sincronizando</span></div>}
                     </header>
 
@@ -272,15 +277,15 @@
                         {mainTab === 'rooms' ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                                 {rooms.map(or => (
-                                    <div key={or.id} onClick={() => { setSelectedORId(or.id); setView('detail'); }} className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-xl transition-all group active:scale-95">
-                                        <div className="h-44 bg-slate-200 relative overflow-hidden text-left">
+                                    <div key={or.id} onClick={() => { setSelectedORId(or.id); setView('detail'); }} className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-xl transition-all group active:scale-95 text-left">
+                                        <div className="h-44 bg-slate-200 relative overflow-hidden">
                                             <img src={or.imagen} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                             <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-bold text-white shadow-lg ${getStatusColor(or.estado)}`}>{or.estado?.toUpperCase()}</div>
                                         </div>
-                                        <div className="p-6 flex justify-between items-center text-slate-800 text-left">
-                                            <div className="text-left">
-                                                <h3 className="font-bold text-[#00A896] text-xl tracking-tighter truncate text-left">{or.nombre}</h3>
-                                                <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5 text-left">{or.especialidad}</p>
+                                        <div className="p-6 flex justify-between items-center text-slate-800">
+                                            <div>
+                                                <h3 className="font-bold text-[#00A896] text-xl tracking-tighter truncate">{or.nombre}</h3>
+                                                <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">{or.especialidad}</p>
                                             </div>
                                             <Icon name="ChevronRight" size={18} className="text-slate-300 group-hover:text-[#00A896] transition-colors" />
                                         </div>
@@ -290,26 +295,23 @@
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
                                 {EQUIPOS_NOMBRES.map(fam => {
-                                    // REGLA SOLICITADA: Filtrar solo equipos que EXISTEN en sala para el conteo
                                     const famEquipsExistentes = equipments.filter(e => e.nombre === fam && e.existe !== false);
-                                    
                                     const okCount = famEquipsExistentes.filter(e => calcularAntiguedad(e.fechaAdquisicion) < 10).length;
                                     const vetCount = famEquipsExistentes.filter(e => calcularAntiguedad(e.fechaAdquisicion) >= 10 && calcularAntiguedad(e.fechaAdquisicion) <= 15).length;
                                     const obsCount = famEquipsExistentes.filter(e => calcularAntiguedad(e.fechaAdquisicion) > 15).length;
                                     const famImg = familyImages[fam];
-
                                     return (
-                                        <div key={fam} onClick={() => { setSelectedFamily(fam); setView('family_detail'); }} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden hover:shadow-2xl transition-all cursor-pointer group active:scale-95 flex flex-col text-left">
+                                        <div key={fam} onClick={() => { setSelectedFamily(fam); setView('family_detail'); }} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden hover:shadow-2xl transition-all cursor-pointer group active:scale-95 flex flex-col">
                                             <div className="h-40 relative bg-slate-100 flex items-center justify-center overflow-hidden">
                                                 {famImg ? <img src={famImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <Icon name="Layers" size={48} className="text-slate-200" />}
                                                 <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-60"></div>
                                             </div>
-                                            <div className="p-8 pt-4 text-left">
-                                                <div className="flex justify-between items-start mb-4 text-left">
-                                                    <h2 className="text-2xl font-black text-[#00A896] tracking-tighter leading-none text-left">{fam}</h2>
+                                            <div className="p-8 pt-4">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <h2 className="text-2xl font-black text-[#00A896] tracking-tighter leading-none">{fam}</h2>
                                                     <Icon name="ChevronRight" size={20} className="text-slate-200 group-hover:text-[#00A896] transition-all" />
                                                 </div>
-                                                <div className="flex flex-wrap gap-2 mt-4 text-left">
+                                                <div className="flex flex-wrap gap-2 mt-4">
                                                     <div className="bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div><span className="text-[10px] font-bold text-emerald-600 uppercase">ok: {okCount}</span></div>
                                                     <div className="bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div><span className="text-[10px] font-bold text-amber-600 uppercase">veterano: {vetCount}</span></div>
                                                     <div className="bg-red-50 px-3 py-1.5 rounded-xl border border-red-100 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-500"></div><span className="text-[10px] font-bold text-red-600 uppercase">obsoleto: {obsCount}</span></div>
@@ -326,21 +328,21 @@
 
             if (view === 'family_detail' && selectedFamily) return (
                 <div className="min-h-screen animate-in bg-slate-50 pb-20 text-left">
-                    <div className="h-64 md:h-80 relative overflow-hidden bg-[#00A896] text-left">
+                    <div className="h-64 md:h-80 relative overflow-hidden bg-[#00A896]">
                         {familyImages[selectedFamily] ? <img src={familyImages[selectedFamily]} className="w-full h-full object-cover opacity-80" /> : <div className="w-full h-full flex items-center justify-center"><Icon name="Layers" size={80} className="text-white opacity-20" /></div>}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 text-left"></div>
-                        <nav className="absolute top-0 left-0 right-0 p-5 flex items-center justify-between z-10 text-left">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
+                        <nav className="absolute top-0 left-0 right-0 p-5 flex items-center justify-between z-10">
                             <button onClick={() => setView('landing')} className="flex items-center gap-2 font-bold text-sm text-white bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl hover:bg-white/20 transition-all shadow-xl"><Icon name="ChevronLeft" size={20} /> Volver a Familias</button>
                             <button onClick={() => familyFileRef.current.click()} className="p-2.5 bg-white text-[#00A896] rounded-xl shadow-2xl hover:scale-105 transition-all"><Icon name="Camera" size={20} /></button>
                             <input type="file" ref={familyFileRef} className="hidden" onChange={(e) => handleUpload(e, 'family', selectedFamily)} />
                         </nav>
-                        <div className="absolute bottom-8 left-8 text-left">
-                            <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none text-white text-left">{selectedFamily}</h1>
-                            <p className="text-white/80 font-medium mt-2 flex items-center gap-2 uppercase text-xs tracking-widest text-left"><Icon name="Activity" size={14} className="text-white" /> {equipments.filter(e => e.nombre === selectedFamily && e.existe !== false).length} Activos en Hospital</p>
+                        <div className="absolute bottom-8 left-8">
+                            <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none text-white">{selectedFamily}</h1>
+                            <p className="text-white/80 font-medium mt-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Icon name="Activity" size={14} className="text-white" /> {equipments.filter(e => e.nombre === selectedFamily && e.existe !== false).length} Activos</p>
                         </div>
                     </div>
-                    <div className="p-6 pt-12 max-w-7xl mx-auto text-left">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+                    <div className="p-6 pt-12 max-w-7xl mx-auto">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                             {equipments.filter(e => e.nombre === selectedFamily).sort((a, b) => parseInt(a.roomId) - parseInt(b.roomId)).map(eq => {
                                 const roomName = rooms.find(r => r.id.toString() === eq.roomId.toString())?.nombre || "N/A";
                                 const exists = eq.existe !== false;
@@ -348,15 +350,15 @@
                                 const ageColors = getAgeColors(anios);
                                 return (
                                     <div key={eq.id} onClick={() => { setSelectedEqId(eq.id); setView('eq'); }} className={`bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-xl transition-all group active:scale-95 border-l-4 ${!exists ? 'opacity-60 grayscale bg-slate-50 border-l-red-500' : ageColors.border}`}>
-                                        <div className="h-44 bg-slate-100 relative text-left">
+                                        <div className="h-44 bg-slate-100 relative">
                                             <img src={eq.imagen} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                             <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-[9px] font-bold text-white shadow-lg ${getStatusColor(eq.estado)}`}>{eq.estado?.toUpperCase()}</div>
                                         </div>
-                                        <div className="p-6 text-left">
-                                            <h3 className="font-black text-[#00A896] text-xl tracking-tighter mb-1 truncate text-left">{roomName}</h3>
-                                            <p className="text-xs text-slate-400 font-medium italic truncate line-clamp-2 leading-relaxed text-left">"{eq.descripcion}"</p>
-                                            <div className="mt-4 flex items-center justify-between text-left">
-                                                {exists ? <span className={`text-[10px] font-bold uppercase tracking-widest ${ageColors.text}`}>{anios} años</span> : <span className="text-red-500 flex items-center gap-1 font-black uppercase text-[9px]"><Icon name="EyeOff" size={10} /> NO DISPONIBLE EN SALA</span>}
+                                        <div className="p-6">
+                                            <h3 className="font-black text-[#00A896] text-xl tracking-tighter mb-1 truncate">{roomName}</h3>
+                                            <p className="text-xs text-slate-400 font-medium italic truncate line-clamp-2 leading-relaxed">"{eq.descripcion}"</p>
+                                            <div className="mt-4 flex items-center justify-between">
+                                                {exists ? <span className={`text-[10px] font-bold uppercase tracking-widest ${ageColors.text}`}>{anios} años</span> : <span className="text-red-500 flex items-center gap-1 font-black uppercase text-[9px]"><Icon name="EyeOff" size={10} /> NO DISPONIBLE</span>}
                                                 <Icon name="ChevronRight" size={16} className="text-slate-200 group-hover:text-[#00A896]" />
                                             </div>
                                         </div>
@@ -370,33 +372,33 @@
 
             if (view === 'detail' && selectedOR) return (
                 <div className="min-h-screen bg-white animate-in text-slate-800 pb-20 text-left">
-                    <div className="h-80 bg-slate-900 relative overflow-hidden text-white text-left">
+                    <div className="h-80 bg-slate-900 relative overflow-hidden text-white">
                         <img src={selectedOR.imagen} className="w-full h-full object-cover opacity-80" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
                         <button onClick={() => setView('landing')} className="absolute top-6 left-6 p-2 bg-white/10 rounded-xl text-white hover:bg-white/20 transition-all shadow-xl"><Icon name="ChevronLeft" size={20} /></button>
                         <button onClick={() => fileRef.current.click()} className="absolute top-6 right-6 p-2 bg-[#00A896] rounded-xl text-white hover:scale-105 transition-transform shadow-lg"><Icon name="Camera" size={20} /></button>
                         <input type="file" ref={fileRef} className="hidden" onChange={(e) => handleUpload(e, 'room', selectedOR.id)} />
-                        <div className="absolute bottom-8 left-8 text-left">
-                            <h2 className="text-5xl font-black uppercase tracking-tighter leading-none text-white text-left">{selectedOR.nombre}</h2>
-                            <div className="flex items-center gap-3 mt-4 text-left">
-                                <p className="opacity-90 flex items-center gap-2 text-lg font-medium text-white text-left"><Icon name="Stethoscope" size={18} className="text-[#00A896]" /> {selectedOR.especialidad}</p>
+                        <div className="absolute bottom-8 left-8">
+                            <h2 className="text-5xl font-black uppercase tracking-tighter leading-none text-white">{selectedOR.nombre}</h2>
+                            <div className="flex items-center gap-3 mt-4">
+                                <p className="opacity-90 flex items-center gap-2 text-lg font-medium text-white"><Icon name="Stethoscope" size={18} className="text-[#00A896]" /> {selectedOR.especialidad}</p>
                                 <span className={`px-3 py-1 rounded-full text-[9px] font-bold border border-white/30 uppercase tracking-widest shadow-lg ${getStatusColor(selectedOR.estado)} text-white`}>{selectedOR.estado}</span>
                             </div>
                         </div>
                     </div>
-                    <div className="px-6 max-w-5xl mx-auto -mt-8 relative z-10 text-slate-800 text-left">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10 text-left">
+                    <div className="px-6 max-w-5xl mx-auto -mt-8 relative z-10 text-slate-800">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
                             {['Operativo', 'Mantenimiento', 'No disponible'].map(st => (
                                 <button key={st} onClick={() => saveChange('rooms', selectedOR.id.toString(), {estado: st})} className={`p-4 rounded-2xl font-bold text-xs border-2 transition-all ${selectedOR.estado === st ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`} style={selectedOR.estado === st ? { borderColor: st === 'Operativo' ? '#10b981' : st === 'Mantenimiento' ? '#f59e0b' : '#ef4444', borderTopWidth: '4px' } : {}}>{st}</button>
                             ))}
                         </div>
-                        <button onClick={() => setView('net')} className="w-full p-6 bg-blue-50 border border-blue-100 rounded-3xl mb-12 flex items-center gap-5 hover:shadow-md transition-all group text-slate-800 text-left">
+                        <button onClick={() => setView('net')} className="w-full p-6 bg-blue-50 border border-blue-100 rounded-3xl mb-12 flex items-center gap-5 hover:shadow-md transition-all group text-slate-800">
                             <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><Icon name="Wifi" size={22} /></div>
-                            <div className="text-left"><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 text-slate-400 text-left">Conectividad</p><p className="text-lg font-bold text-slate-900 text-left">Gestionar Bocas de Red</p></div>
+                            <div className="text-left"><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 text-slate-400">Conectividad</p><p className="text-lg font-bold text-slate-900">Gestionar Bocas de Red</p></div>
                             <Icon name="ChevronRight" size={20} className="ml-auto text-slate-300" />
                         </button>
-                        <h3 className="font-bold text-xl mb-6 flex items-center gap-3 text-slate-900 text-left"><Icon name="Activity" className="text-[#00A896]" size={24} /> Inventario en Quirófano</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                        <h3 className="font-bold text-xl mb-6 flex items-center gap-3 text-slate-900"><Icon name="Activity" className="text-[#00A896]" size={24} /> Inventario en Quirófano</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {equipments.filter(e => e.roomId == selectedOR.id).map(eq => {
                                 const exists = eq.existe !== false;
                                 const requiresMaint = eq.requierePreventivo !== false;
@@ -405,13 +407,13 @@
                                 const isOverdue = isMaintenanceOverdue(eq.ultimaRevision, eq.periodicidad);
                                 return (
                                     <div key={eq.id} onClick={() => { setSelectedEqId(eq.id); setView('eq'); }} className={`flex items-center p-4 bg-white border border-slate-100 rounded-3xl border-l-4 shadow-sm hover:shadow-md transition-all cursor-pointer group ${!exists ? 'opacity-60 grayscale bg-slate-50 border-l-red-500' : ageColors.border}`}>
-                                        <div className="w-16 h-16 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0 border relative text-left">
+                                        <div className="w-16 h-16 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0 border relative">
                                             <img src={eq.imagen} className="w-full h-full object-cover" />
                                             {exists && requiresMaint && <div className={`absolute top-1 right-1 p-0.5 rounded-full shadow-sm ${isOverdue ? 'bg-red-500' : 'bg-emerald-500'}`}><Icon name={isOverdue ? 'X' : 'Check'} size={8} strokeWidth={4} className="text-white" /></div>}
                                         </div>
                                         <div className="ml-4 flex-grow overflow-hidden text-slate-800 text-left">
-                                            <h4 className="font-bold text-slate-800 text-base group-hover:text-[#00A896] truncate transition-colors text-left">{eq.nombre}</h4>
-                                            <p className="text-[9px] font-bold text-slate-400 tracking-wider text-left">{exists ? <span className="flex items-center gap-1.5 overflow-hidden"><span className="truncate italic max-w-[140px]">"{eq.descripcion}"</span><span className="shrink-0">•</span><span className={ageColors.text + " uppercase shrink-0"}>{anios} años</span></span> : <span className="text-red-500 flex items-center gap-1 font-black uppercase text-left"><Icon name="EyeOff" size={10} /> NO DISPONIBLE EN SALA</span>}</p>
+                                            <h4 className="font-bold text-slate-800 text-base group-hover:text-[#00A896] truncate transition-colors">{eq.nombre}</h4>
+                                            <p className="text-[9px] font-bold text-slate-400 tracking-wider">{exists ? <span className="flex items-center gap-1.5 overflow-hidden"><span className="truncate italic max-w-[140px]">"{eq.descripcion}"</span><span className="shrink-0">•</span><span className={ageColors.text + " uppercase shrink-0"}>{anios} años</span></span> : <span className="text-red-500 flex items-center gap-1 font-black uppercase"><Icon name="EyeOff" size={10} /> NO DISPONIBLE EN SALA</span>}</p>
                                         </div>
                                         <Icon name="ChevronRight" size={16} className="text-slate-300 group-hover:translate-x-1 transition-transform shrink-0" />
                                     </div>
@@ -429,50 +431,50 @@
                         <span className="font-extrabold uppercase tracking-widest text-xl text-white">{selectedEq.nombre}</span>
                         <div className="w-10"></div>
                     </nav>
-                    <div className="max-w-5xl mx-auto p-4 sm:p-6 text-slate-800 text-left">
-                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100 text-left">
+                    <div className="max-w-5xl mx-auto p-4 sm:p-6 text-slate-800">
+                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
                             {selectedEq.existe !== false ? (
                                 <React.Fragment>
-                                    <div className="aspect-video bg-slate-200 relative group text-left">
+                                    <div className="aspect-video bg-slate-200 relative group">
                                         <img src={selectedEq.imagen} className="w-full h-full object-cover" />
-                                        <button onClick={() => eqFileRef.current.click()} className="absolute bottom-6 right-6 p-4 bg-[#00A896] text-white rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all"><Icon name="Camera" size={22} /></button>
+                                        <button onClick={() => eqFileRef.current.click()} className="absolute bottom-6 right-6 p-4 bg-[#00A896] text-white rounded-2xl shadow-2xl hover:scale-110 transition-all"><Icon name="Camera" size={22} /></button>
                                         <input type="file" ref={eqFileRef} className="hidden" onChange={(e) => handleUpload(e, 'eq', selectedEq.id)} />
-                                        <div className="absolute top-6 left-6 flex flex-col gap-2 text-left"><span className="bg-[#00A896] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl text-left">{selectedEq.tipo}</span></div>
+                                        <div className="absolute top-6 left-6 flex flex-col gap-2"><span className="bg-[#00A896] text-white text-[9px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-xl">{selectedEq.tipo}</span></div>
                                     </div>
-                                    <div className="p-8 sm:p-12 text-left">
-                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10 text-slate-800 text-left">
-                                            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 leading-tight text-left">{selectedEq.nombre}</h2>
+                                    <div className="p-8 sm:p-12">
+                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10 text-slate-800">
+                                            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 leading-tight">{selectedEq.nombre}</h2>
                                             <button onClick={() => { const opts = ['Operativo', 'Mantenimiento', 'No disponible']; saveChange('equipments', selectedEq.id, { estado: opts[(opts.indexOf(selectedEq.estado || 'Operativo') + 1) % 3] }); }} className={`px-5 py-2.5 rounded-xl font-bold shadow-lg flex items-center gap-2 uppercase text-[10px] tracking-widest transition-all text-white ${getStatusColor(selectedEq.estado)} ${selectedEq.estado === 'Mantenimiento' ? 'animate-pulse' : ''}`}>{selectedEq.estado === 'Operativo' ? <Icon name="Check" size={16}/> : selectedEq.estado === 'No disponible' ? <Icon name="AlertCircle" size={16} /> : <Icon name="RefreshCw" size={16} className="animate-spin-slow"/>} {selectedEq.estado}</button>
                                         </div>
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10 text-left">
-                                            <div className="lg:col-span-2 text-left">
-                                                <div className="flex items-center justify-between mb-4 text-slate-400 text-left"><h3 className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 tracking-widest text-left"><Icon name="Info" size={12} className="text-[#00A896]" /> Descripción Técnica</h3><button onClick={() => setIsEditingDesc(!isEditingDesc)} className="hover:text-[#00A896] transition-colors text-left"><Icon name="Edit" size={14} /></button></div>
-                                                {isEditingDesc ? <div className="space-y-4 text-left"><textarea className="w-full p-6 bg-slate-50 border-2 border-[#00A896] rounded-2xl font-medium text-sm h-32 outline-none text-left" value={selectedEq.descripcion} onChange={(e) => saveChange('equipments', selectedEq.id, { descripcion: e.target.value })} /><button onClick={() => setIsEditingDesc(false)} className="bg-[#00A896] text-white px-5 py-2 rounded-xl font-bold text-xs shadow-md text-left">Guardar</button></div> : <p className="text-slate-600 text-lg italic bg-slate-50 p-6 rounded-3xl border border-slate-100 leading-relaxed shadow-inner text-left">"{selectedEq.descripcion}"</p>}
+                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10 text-slate-800">
+                                            <div className="lg:col-span-2">
+                                                <div className="flex items-center justify-between mb-4 text-slate-400"><h3 className="text-[9px] font-bold uppercase tracking-widest flex items-center gap-2"><Icon name="Info" size={12} className="text-[#00A896]" /> Descripción Técnica</h3><button onClick={() => setIsEditingDesc(!isEditingDesc)} className="hover:text-[#00A896] transition-colors"><Icon name="Edit" size={14} /></button></div>
+                                                {isEditingDesc ? <div className="space-y-4"><textarea className="w-full p-6 bg-slate-50 border-2 border-[#00A896] rounded-2xl font-medium text-sm h-32 outline-none" value={selectedEq.descripcion} onChange={(e) => saveChange('equipments', selectedEq.id, { descripcion: e.target.value })} /><button onClick={() => setIsEditingDesc(false)} className="bg-[#00A896] text-white px-5 py-2 rounded-xl font-bold text-xs shadow-md">Guardar</button></div> : <p className="text-slate-600 text-lg italic bg-slate-50 p-6 rounded-3xl border border-slate-100 leading-relaxed shadow-inner">"{selectedEq.descripcion}"</p>}
                                             </div>
                                             <div className={`p-6 rounded-[2rem] border-2 flex flex-col items-center justify-center text-center relative ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).fullBorder} ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).bg}`}>
-                                                <button onClick={() => setIsEditingAge(!isEditingAge)} className={`absolute top-4 right-4 opacity-50 hover:opacity-100 ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} text-left`}><Icon name="Edit" size={14} /></button>
-                                                {isEditingAge ? <div className="w-full space-y-2 animate-in text-left text-center"><input type="date" className="w-full p-2 bg-white rounded-lg text-xs font-bold text-center border text-slate-800 outline-none focus:border-[#00A896] text-left" value={selectedEq.fechaAdquisicion} onChange={e => saveChange('equipments', selectedEq.id, { fechaAdquisicion: e.target.value })} /><button onClick={() => setIsEditingAge(false)} className="w-full bg-slate-800 text-white py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white text-left">Cerrar</button></div> : <React.Fragment><Icon name="History" className={`${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} mb-2`} size={24} /><p className={`text-5xl font-black ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} leading-none`}>{calcularAntiguedad(selectedEq.fechaAdquisicion)}</p><p className={`text-[9px] font-bold uppercase tracking-widest opacity-60 ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text}`}>Años de Servicio</p></React.Fragment>}
+                                                <button onClick={() => setIsEditingAge(!isEditingAge)} className={`absolute top-4 right-4 opacity-50 hover:opacity-100 ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text}`}><Icon name="Edit" size={14} /></button>
+                                                {isEditingAge ? <div className="w-full space-y-2 animate-in text-center"><input type="date" className="w-full p-2 bg-white rounded-lg text-xs font-bold text-center border text-slate-800 outline-none focus:border-[#00A896]" value={selectedEq.fechaAdquisicion} onChange={e => saveChange('equipments', selectedEq.id, { fechaAdquisicion: e.target.value })} /><button onClick={() => setIsEditingAge(false)} className="w-full bg-slate-800 text-white py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider">Cerrar</button></div> : <React.Fragment><Icon name="History" className={`${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} mb-2`} size={24} /><p className={`text-5xl font-black ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} leading-none`}>{calcularAntiguedad(selectedEq.fechaAdquisicion)}</p><p className={`text-[9px] font-bold uppercase tracking-widest opacity-60 ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text}`}>Años de Servicio</p></React.Fragment>}
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 text-left">
-                                            <div className={`p-6 rounded-3xl border shadow-sm relative group transition-all text-left ${selectedEq.requierePreventivo === false ? 'bg-slate-50 border-slate-100 grayscale opacity-70 text-left' : 'bg-white border-slate-100 text-left'}`}>
-                                                <div className="flex items-center justify-between mb-4 text-left"><div className="flex items-center gap-3 text-slate-400 text-left"><Icon name="Calendar" size={20} /><span className={`text-[9px] font-bold uppercase tracking-widest ${selectedEq.requierePreventivo === false ? 'text-slate-400' : 'text-[#00A896]'} text-left`}>Mantenimiento Preventivo</span></div><div className="flex items-center gap-2 text-left"><button onClick={() => saveChange('equipments', selectedEq.id, { requierePreventivo: selectedEq.requierePreventivo !== false ? false : true })} className={`w-8 h-4 rounded-full transition-all relative ${selectedEq.requierePreventivo !== false ? 'bg-[#00A896]' : 'bg-slate-300'} text-left`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all`} style={{left: selectedEq.requierePreventivo !== false ? '18px' : '2px'}}></div></button>{selectedEq.requierePreventivo !== false && <button onClick={() => setIsEditingMaint(!isEditingMaint)} className="text-slate-300 hover:text-[#00A896] ml-2 transition-colors text-left"><Icon name="Edit" size={14}/></button>}</div></div>
-                                                {selectedEq.requierePreventivo === false ? <div className="flex flex-col items-center justify-center py-4 text-center text-left"><Icon name="EyeOff" size={32} className="text-slate-300 mb-2 text-left" /><p className="text-xs font-bold text-slate-400 italic text-left">No requiere mantenimiento programado</p></div> : isEditingMaint ? <div className="space-y-4 animate-in text-left text-left"><input type="date" className="w-full p-2.5 border rounded-xl font-bold text-sm text-slate-800 text-left" value={selectedEq.ultimaRevision} onChange={e => saveChange('equipments', selectedEq.id, { ultimaRevision: e.target.value })} /><select className="w-full p-2.5 border rounded-xl font-bold text-sm text-slate-800 text-left" value={selectedEq.periodicidad} onChange={e => saveChange('equipments', selectedEq.id, { periodicidad: e.target.value })}><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="bienal">Bienal</option></select><button onClick={() => setIsEditingMaint(false)} className="w-full bg-[#00A896] text-white py-2 rounded-xl text-xs font-bold uppercase shadow-md text-white text-left">Guardar</button></div> : <React.Fragment><div className="flex items-center gap-3 text-left"><p className="text-3xl font-black text-slate-900 text-left">{new Date(selectedEq.ultimaRevision).toLocaleDateString('es-ES')}</p><div className={`p-1 rounded-full ${isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'bg-red-500' : 'bg-emerald-500'} text-left`}><Icon name={isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'X' : 'Check'} size={14} strokeWidth={4} className="text-white text-left" /></div></div><div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between text-left"><div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 text-left">Próxima ({selectedEq.periodicidad})</p><p className={`font-bold flex items-center gap-1.5 text-sm ${isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'text-red-500' : 'text-emerald-600'} text-left text-left`}><Icon name={isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'AlertCircle' : 'Check'} size={14} /> {calcularProximaRevision(selectedEq.ultimaRevision, selectedEq.periodicidad)}</p></div></div></React.Fragment>}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                                            <div className={`p-6 rounded-3xl border shadow-sm relative group transition-all ${selectedEq.requierePreventivo === false ? 'bg-slate-50 border-slate-100 grayscale opacity-70' : 'bg-white border-slate-100'}`}>
+                                                <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-3 text-slate-400"><Icon name="Calendar" size={20} /><span className={`text-[9px] font-bold uppercase tracking-widest ${selectedEq.requierePreventivo === false ? 'text-slate-400' : 'text-[#00A896]'}`}>Mantenimiento Preventivo</span></div><div className="flex items-center gap-2"><button onClick={() => saveChange('equipments', selectedEq.id, { requierePreventivo: selectedEq.requierePreventivo !== false ? false : true })} className={`w-8 h-4 rounded-full transition-all relative ${selectedEq.requierePreventivo !== false ? 'bg-[#00A896]' : 'bg-slate-300'}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all`} style={{left: selectedEq.requierePreventivo !== false ? '18px' : '2px'}}></div></button>{selectedEq.requierePreventivo !== false && <button onClick={() => setIsEditingMaint(!isEditingMaint)} className="text-slate-300 hover:text-[#00A896] ml-2 transition-colors"><Icon name="Edit" size={14}/></button>}</div></div>
+                                                {selectedEq.requierePreventivo === false ? <div className="flex flex-col items-center justify-center py-4 text-center"><Icon name="EyeOff" size={32} className="text-slate-300 mb-2" /><p className="text-xs font-bold text-slate-400 italic">No requiere mantenimiento programado</p></div> : isEditingMaint ? <div className="space-y-4 animate-in text-left"><input type="date" className="w-full p-2.5 border rounded-xl font-bold text-sm text-slate-800" value={selectedEq.ultimaRevision} onChange={e => saveChange('equipments', selectedEq.id, { ultimaRevision: e.target.value })} /><select className="w-full p-2.5 border rounded-xl font-bold text-sm text-slate-800" value={selectedEq.periodicidad} onChange={e => saveChange('equipments', selectedEq.id, { periodicidad: e.target.value })}><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="bienal">Bienal</option></select><button onClick={() => setIsEditingMaint(false)} className="w-full bg-[#00A896] text-white py-2 rounded-xl text-xs font-bold uppercase shadow-md">Guardar</button></div> : <React.Fragment><div className="flex items-center gap-3"><p className="text-3xl font-black text-slate-900">{new Date(selectedEq.ultimaRevision).toLocaleDateString('es-ES')}</p><div className={`p-1 rounded-full ${isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'bg-red-500' : 'bg-emerald-500'}`}><Icon name={isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'X' : 'Check'} size={14} strokeWidth={4} className="text-white" /></div></div><div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between"><div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Próxima ({selectedEq.periodicidad})</p><p className={`font-bold flex items-center gap-1.5 text-sm ${isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'text-red-500' : 'text-emerald-600'}`}><Icon name={isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'AlertCircle' : 'Check'} size={14} /> {calcularProximaRevision(selectedEq.ultimaRevision, selectedEq.periodicidad)}</p></div></div></React.Fragment>}
                                             </div>
                                             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-center text-slate-800 transition-all hover:border-[#00A896] text-left">
-                                                <div className="flex items-center gap-3 text-slate-400 mb-4 text-left"><Icon name="FileText" size={20} /><span className="text-[9px] font-bold uppercase tracking-widest text-left text-left">Documentación Técnica</span></div>
-                                                {selectedEq.manualUrl || selectedEq.manualExternalUrl ? <div className="space-y-3 animate-in text-left"><button onClick={() => { if (selectedEq.manualExternalUrl) window.open(selectedEq.manualExternalUrl); else { const win = window.open(); win.document.write(`<iframe src="${selectedEq.manualUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`); } }} className="flex items-center gap-2 text-[#00A896] font-bold text-xl hover:translate-x-1 transition-transform text-left text-left">Ver Manual <Icon name="ExternalLink" size={20} /></button><button onClick={() => saveChange('equipments', selectedEq.id, { manualUrl: "", manualExternalUrl: "" })} className="text-[9px] font-bold text-slate-300 hover:text-red-500 uppercase flex items-center gap-1 text-left"><Icon name="X" size={10} /> Eliminar</button></div> : <div className="flex flex-col gap-3 text-left"><button onClick={() => manualFileRef.current.click()} className="flex items-center gap-2 text-slate-400 font-bold text-lg hover:text-[#00A896] transition-colors text-left text-left"><Icon name="Camera" size={20} /> Subir PDF</button><div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-dashed border-slate-200 text-left text-left"><Icon name="Link" size={16} className="text-slate-400 text-left" /><input className="bg-transparent text-xs outline-none w-full font-medium text-left text-left" placeholder="O pega un enlace..." value={manualLink} onChange={(e) => setManualLink(e.target.value)} onBlur={() => { if(manualLink) { saveChange('equipments', selectedEq.id, { manualExternalUrl: manualLink, manualUrl: "" }); setManualLink(''); } }} /></div></div>}
+                                                <div className="flex items-center gap-3 text-slate-400 mb-4"><Icon name="FileText" size={20} /><span className="text-[9px] font-bold uppercase tracking-widest">Documentación Técnica</span></div>
+                                                {selectedEq.manualUrl || selectedEq.manualExternalUrl ? <div className="space-y-3 animate-in"><button onClick={() => { if (selectedEq.manualExternalUrl) window.open(selectedEq.manualExternalUrl); else { const win = window.open(); win.document.write(`<iframe src="${selectedEq.manualUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`); } }} className="flex items-center gap-2 text-[#00A896] font-bold text-xl hover:translate-x-1 transition-transform">Ver Manual <Icon name="ExternalLink" size={20} /></button><button onClick={() => saveChange('equipments', selectedEq.id, { manualUrl: "", manualExternalUrl: "" })} className="text-[9px] font-bold text-slate-300 hover:text-red-500 uppercase flex items-center gap-1"><Icon name="X" size={10} /> Eliminar</button></div> : <div className="flex flex-col gap-3"><button onClick={() => manualFileRef.current.click()} className="flex items-center gap-2 text-slate-400 font-bold text-lg hover:text-[#00A896] transition-colors"><Icon name="Camera" size={20} /> Subir PDF</button><div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-dashed border-slate-200"><Icon name="Link" size={16} className="text-slate-400" /><input className="bg-transparent text-xs outline-none w-full font-medium" placeholder="O pega un enlace..." value={manualLink} onChange={(e) => setManualLink(e.target.value)} onBlur={() => { if(manualLink) { saveChange('equipments', selectedEq.id, { manualExternalUrl: manualLink, manualUrl: "" }); setManualLink(''); } }} /></div></div>}
                                                 <input type="file" ref={manualFileRef} className="hidden" accept="application/pdf" onChange={(e) => handleUpload(e, 'manual', selectedEq.id)} />
                                             </div>
                                         </div>
-                                        <div className="mt-12 pt-12 border-t border-slate-100 text-left text-left"><div className="bg-slate-50 p-6 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6 shadow-inner text-slate-800 text-left"><div className="flex items-center gap-4 text-left"><div className="p-3 bg-white rounded-2xl text-red-500 shadow-sm text-left"><Icon name="AlertCircle" size={24} /></div><div className="text-left text-left"><h4 className="font-bold text-left text-left">Control de Inventario</h4><p className="text-xs text-slate-400 font-medium text-left text-left">Marcar equipo como no disponible en esta sala.</p></div></div><button onClick={() => saveChange('equipments', selectedEq.id, { existe: false })} className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-red-100 hover:bg-red-500 hover:text-white transition-all text-white text-left text-left">No disponible en sala</button></div></div>
+                                        <div className="mt-12 pt-12 border-t border-slate-100 text-left"><div className="bg-slate-50 p-6 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6 shadow-inner text-slate-800"><div className="flex items-center gap-4"><div className="p-3 bg-white rounded-2xl text-red-500 shadow-sm"><Icon name="AlertCircle" size={24} /></div><div><h4 className="font-bold">Control de Inventario</h4><p className="text-xs text-slate-400 font-medium">Marcar equipo como no disponible en esta sala.</p></div></div><button onClick={() => saveChange('equipments', selectedEq.id, { existe: false })} className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-red-100 hover:bg-red-500 hover:text-white transition-all">No disponible en sala</button></div></div>
                                     </div>
                                 </React.Fragment>
                             ) : (
-                                <div className="p-20 text-center bg-white flex flex-col items-center gap-6 animate-in text-left">
-                                   <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 border border-slate-100 shadow-inner text-left text-left"><Icon name="EyeOff" size={48} /></div>
-                                   <h3 className="text-3xl font-black text-red-500 uppercase tracking-tighter leading-none text-left">No disponible en sala</h3>
-                                   <button onClick={() => saveChange('equipments', selectedEq.id, { existe: true })} className="bg-[#00A896] text-white px-10 py-4 rounded-full font-bold shadow-xl hover:scale-105 transition-all uppercase text-xs tracking-widest text-white text-left">Habilitar en Sala</button>
+                                <div className="p-20 text-center bg-white flex flex-col items-center gap-6 animate-in">
+                                   <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 border border-slate-100 shadow-inner"><Icon name="EyeOff" size={48} /></div>
+                                   <h3 className="text-3xl font-black text-red-500 uppercase tracking-tighter leading-none">No disponible en sala</h3>
+                                   <button onClick={() => saveChange('equipments', selectedEq.id, { existe: true })} className="bg-[#00A896] text-white px-10 py-4 rounded-full font-bold shadow-xl hover:scale-105 transition-all uppercase text-xs tracking-widest text-white">Habilitar en Sala</button>
                                 </div>
                             )}
                         </div>
@@ -483,17 +485,17 @@
             if (view === 'net' && selectedOR) return (
                 <div className="animate-in bg-slate-50 min-h-screen pb-10 text-left">
                     <nav className="bg-[#00A896] p-5 text-white flex items-center justify-between sticky top-0 z-30 shadow-md">
-                        <button onClick={() => setView('detail')} className="flex items-center gap-2 font-bold hover:text-white/80 transition-colors text-sm text-white text-left text-left text-left text-left"><Icon name="ChevronLeft" size={20} /> Volver</button>
-                        <span className="font-extrabold uppercase tracking-widest text-xl text-white text-left">Red {selectedOR?.nombre}</span>
+                        <button onClick={() => setView('detail')} className="flex items-center gap-2 font-bold hover:text-white/80 transition-colors text-sm text-white"><Icon name="ChevronLeft" size={20} /> Volver</button>
+                        <span className="font-extrabold uppercase tracking-widest text-xl text-white">Red {selectedOR?.nombre}</span>
                         <div className="w-10"></div>
                     </nav>
-                    <div className="p-4 sm:p-8 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-slate-800 text-left text-left">
+                    <div className="p-4 sm:p-8 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-slate-800">
                         {connections.filter(c => c.roomId == selectedOR.id).map(b => {
                             const isEditing = editingBocaId === b.id;
                             return (
-                                <div key={b.id} className={`bg-white p-8 rounded-[2rem] border-2 transition-all relative overflow-hidden group ${isEditing ? 'border-[#00A896] shadow-xl' : 'border-slate-100 hover:shadow-lg'} text-left text-left`}>
-                                    <button onClick={() => { if(isEditing) setEditingBocaId(null); else { setEditingBocaId(b.id); setTempBocaData({ boca: b.boca, uso: b.uso, verificado: b.verificado }); } }} className="absolute top-5 right-5 p-2 text-slate-300 hover:text-[#00A896] transition-all text-slate-400 text-left text-left"><Icon name="Edit" size={18} /></button>
-                                    {isEditing ? <div className="space-y-4 animate-in text-left text-left"><div><label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block text-left">Boca ID</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm text-left outline-none" value={tempBocaData.boca} onChange={e => setTempBocaData({...tempBocaData, boca: e.target.value})} /></div><div><label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block text-left">Uso</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm text-left outline-none" value={tempBocaData.uso} onChange={e => setTempBocaData({...tempBocaData, uso: e.target.value})} /></div><div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl text-left"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Enlace verificado</span><button onClick={() => setTempBocaData({...tempBocaData, verificado: !tempBocaData.verificado})} className={`w-10 h-5 rounded-full transition-all ${tempBocaData.verificado ? 'bg-[#00A896]' : 'bg-slate-300'} text-left`} /></div><button onClick={() => { saveChange('connections', b.id, tempBocaData); setEditingBocaId(null); }} className="w-full bg-[#00A896] text-white py-2.5 rounded-xl font-bold text-sm uppercase text-white shadow-md text-left">Guardar</button></div> : <React.Fragment><div className="flex justify-between items-center mb-6 text-left"><div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100 text-left">{b.boca}</div><div className={`px-3 py-1 rounded-full text-[9px] font-bold text-white shadow-sm ${b.uso.toLowerCase().includes('disponible') ? 'bg-emerald-500' : 'bg-blue-600'} text-white text-left`}>{b.uso.toLowerCase().includes('disponible') ? 'LIBRE' : 'ACTIVA'}</div></div><p className="text-xl font-bold text-slate-800 leading-tight mb-8 min-h-[3rem] line-clamp-2 text-left">{b.uso}</p><div className="mt-auto pt-5 border-t flex items-center justify-between text-slate-300 text-left"><div className="flex items-center gap-2.5 text-slate-400 text-left"><div className={`w-2 h-2 rounded-full ${b.verificado ? 'bg-emerald-400' : 'bg-slate-200'} text-left`} /><span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 text-left">Enlace verificado</span></div>{b.verificado && <Icon name="Check" size={14} className="text-emerald-500 text-left" />}</div></React.Fragment>}
+                                <div key={b.id} className={`bg-white p-8 rounded-[2rem] border-2 transition-all relative overflow-hidden group ${isEditing ? 'border-[#00A896] shadow-xl' : 'border-slate-100 hover:shadow-lg'}`}>
+                                    <button onClick={() => { if(isEditing) setEditingBocaId(null); else { setEditingBocaId(b.id); setTempBocaData({ boca: b.boca, uso: b.uso, verificado: b.verificado }); } }} className="absolute top-5 right-5 p-2 text-slate-300 hover:text-[#00A896] transition-all text-slate-400"><Icon name="Edit" size={18} /></button>
+                                    {isEditing ? <div className="space-y-4 animate-in text-left"><div><label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Boca ID</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm outline-none" value={tempBocaData.boca} onChange={e => setTempBocaData({...tempBocaData, boca: e.target.value})} /></div><div><label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Uso</label><input className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-sm outline-none" value={tempBocaData.uso} onChange={e => setTempBocaData({...tempBocaData, uso: e.target.value})} /></div><div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enlace verificado</span><button onClick={() => setTempBocaData({...tempBocaData, verificado: !tempBocaData.verificado})} className={`w-10 h-5 rounded-full transition-all ${tempBocaData.verificado ? 'bg-[#00A896]' : 'bg-slate-300'}`} /></div><button onClick={() => { saveChange('connections', b.id, tempBocaData); setEditingBocaId(null); }} className="w-full bg-[#00A896] text-white py-2.5 rounded-xl font-bold text-sm uppercase text-white shadow-md">Guardar</button></div> : <React.Fragment><div className="flex justify-between items-center mb-6"><div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100">{b.boca}</div><div className={`px-3 py-1 rounded-full text-[9px] font-bold text-white shadow-sm ${b.uso.toLowerCase().includes('disponible') ? 'bg-emerald-500' : 'bg-blue-600'} text-white`}>{b.uso.toLowerCase().includes('disponible') ? 'LIBRE' : 'ACTIVA'}</div></div><p className="text-xl font-bold text-slate-800 leading-tight mb-8 min-h-[3rem] line-clamp-2">{b.uso}</p><div className="mt-auto pt-5 border-t flex items-center justify-between text-slate-300"><div className="flex items-center gap-2.5 text-slate-400"><div className={`w-2 h-2 rounded-full ${b.verificado ? 'bg-emerald-400' : 'bg-slate-200'}`} /><span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Enlace verificado</span></div>{b.verificado && <Icon name="Check" size={14} className="text-emerald-500" />}</div></React.Fragment>}
                                 </div>
                             );
                         })}
@@ -509,14 +511,18 @@
     </script>
     
     <div id="size-alert" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-6 text-left">
-        <div class="bg-white p-8 rounded-[2.5rem] max-w-sm w-full text-center shadow-2xl text-left">
-            <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-left"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-left"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div>
-            <h3 class="text-xl font-black text-slate-800 mb-2 text-left">Archivo muy pesado</h3>
-            <p class="text-sm text-slate-500 mb-6 leading-relaxed text-left">Este PDF supera el límite de 1MB. Por favor, súbelo a Drive/Dropbox y **pega el enlace externo** en el campo correspondiente.</p>
-            <button onclick="document.getElementById('size-alert').style.display='none'" class="w-full bg-[#00A896] text-white py-3 rounded-2xl font-bold text-white text-left">Entendido</button>
+        <div class="bg-white p-8 rounded-[2.5rem] max-w-sm w-full text-center shadow-2xl">
+            <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 mb-2">Archivo muy pesado</h3>
+            <p class="text-sm text-slate-500 mb-6 leading-relaxed">Este PDF supera el límite de 1MB. Por favor, súbelo a Drive/Dropbox y **pega el enlace externo** en el campo correspondiente.</p>
+            <button onclick="document.getElementById('size-alert').style.display='none'" class="w-full bg-[#00A896] text-white py-3 rounded-2xl font-bold">Entendido</button>
         </div>
     </div>
 </body>
 </html>
+</html>
+
 
 
