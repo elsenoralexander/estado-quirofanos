@@ -47,6 +47,8 @@
             measurementId: "G-XT3305XCX7"
         };
         const currentAppId = 'quirofanos-bf581';
+        const ADMIN_PASSWORD = "5553"; // Puedes cambiar la clave aquí
+
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
@@ -118,7 +120,9 @@
                 Link: <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />,
                 ExternalLink: <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6m4-5h6v6m-11 5L21 3" />,
                 BarChart: <React.Fragment><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></React.Fragment>,
-                EyeOff: <React.Fragment><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></React.Fragment>
+                EyeOff: <React.Fragment><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></React.Fragment>,
+                Lock: <React.Fragment><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></React.Fragment>,
+                Unlock: <React.Fragment><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></React.Fragment>
             };
             return (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={{ width: size, height: size }} className={className}>
@@ -193,6 +197,11 @@
         function App() {
             const [mainTab, setMainTab] = useState('rooms'); 
             const [view, setView] = useState('landing');
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [showAuthModal, setShowAuthModal] = useState(false);
+            const [passInput, setPassInput] = useState('');
+            const [authError, setAuthError] = useState(false);
+
             const [rooms, setRooms] = useState([]);
             const [equipments, setEquipments] = useState([]);
             const [connections, setConnections] = useState([]);
@@ -204,7 +213,6 @@
             const [loading, setLoading] = useState(true);
             const [syncing, setSyncing] = useState(false);
 
-            // Edición
             const [isEditingDesc, setIsEditingDesc] = useState(false);
             const [isEditingAge, setIsEditingAge] = useState(false);
             const [isEditingMaint, setIsEditingMaint] = useState(false);
@@ -212,7 +220,6 @@
             const [transferMsg, setTransferMsg] = useState('');
             const [manualLink, setManualLink] = useState('');
 
-            // Edición bocas
             const [editingConnId, setEditingConnId] = useState(null);
             const [editingField, setEditingField] = useState(null); 
             const [editValue, setEditValue] = useState('');
@@ -232,7 +239,19 @@
                 });
             }, []);
 
+            const handleAuth = () => {
+                if (passInput === ADMIN_PASSWORD) {
+                    setIsAdmin(true);
+                    setShowAuthModal(false);
+                    setPassInput('');
+                    setAuthError(false);
+                } else {
+                    setAuthError(true);
+                }
+            };
+
             const saveChange = async (coll, docId, data) => {
+                if (!isAdmin && coll !== 'settings') return; // Bloqueo preventivo
                 setSyncing(true);
                 if (coll === 'connections' && data.uso !== undefined) {
                     const u = data.uso.trim().toLowerCase();
@@ -244,6 +263,7 @@
             };
 
             const handleTransfer = async (movingEq, targetRoomId) => {
+                if (!isAdmin) return;
                 const targetEq = equipments.find(e => e.roomId.toString() === targetRoomId.toString() && e.nombre === movingEq.nombre && e.id !== movingEq.id && e.existe !== false);
                 if (targetEq) {
                     await saveChange('equipments', movingEq.id, { roomId: targetRoomId });
@@ -257,6 +277,7 @@
             };
 
             const handleUpload = (e, type, id) => {
+                if (!isAdmin) return;
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
@@ -288,7 +309,7 @@
                 <div className="min-h-screen flex flex-col items-center justify-center bg-white"><div className="w-12 h-12 border-4 border-[#00A896] border-t-transparent rounded-full animate-spin"></div><p className="mt-4 font-black uppercase text-[10px] tracking-widest text-[#00A896]">Sincronizando Hospital...</p></div>
             );
 
-            // LANDING
+            // VISTA LANDING
             if (view === 'landing') return (
                 <div className="min-h-screen pb-20 animate-in text-left">
                     <header className="bg-[#00A896] min-h-[5rem] shadow-md text-white sticky top-0 z-30 flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 gap-4 py-4 sm:py-0">
@@ -297,6 +318,12 @@
                                 {config.logo ? <img src={config.logo} className="w-full h-full object-contain p-1" /> : <Icon name="Stethoscope" size={28} className="text-[#00A896]" />}
                             </div>
                             <h1 className="text-lg sm:text-xl font-black uppercase tracking-tight">GESTIÓN QUIRÓFANOS</h1>
+                            <button 
+                                onClick={() => isAdmin ? setIsAdmin(false) : setShowAuthModal(true)}
+                                className={`ml-2 p-2 rounded-full transition-all ${isAdmin ? 'bg-white text-[#00A896]' : 'bg-white/20 text-white'}`}
+                            >
+                                <Icon name={isAdmin ? 'Unlock' : 'Lock'} size={18} />
+                            </button>
                         </div>
                         <div className="flex bg-white/20 p-1 rounded-2xl w-full sm:w-auto overflow-x-auto no-scrollbar scroll-smooth">
                             <div className="flex flex-nowrap min-w-full sm:min-w-0">
@@ -308,21 +335,21 @@
                     </header>
                     <div className="p-4 sm:p-6 pt-12 max-w-7xl mx-auto">
                         {mainTab === 'rooms' ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 text-left">
                                 {rooms.map(or => (
                                     <div key={or.id} onClick={() => { setSelectedORId(or.id); setView('detail'); }} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-xl transition-all group">
                                         <div className="h-44 bg-slate-200 relative overflow-hidden"><img src={or.imagen} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /><div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-bold text-white shadow-lg ${getStatusColor(or.estado)}`}>{or.estado?.toUpperCase()}</div></div>
-                                        <div className="p-6 flex justify-between items-center text-slate-800 text-left"><div><h3 className="font-bold text-[#00A896] text-xl truncate">{or.nombre}</h3><p className="text-[10px] text-slate-400 font-medium uppercase">{or.especialidad}</p></div><Icon name="ChevronRight" size={18} className="text-slate-300" /></div>
+                                        <div className="p-6 flex justify-between items-center text-slate-800"><div><h3 className="font-bold text-[#00A896] text-xl truncate">{or.nombre}</h3><p className="text-[10px] text-slate-400 font-medium uppercase">{or.especialidad}</p></div><Icon name="ChevronRight" size={18} className="text-slate-300" /></div>
                                     </div>
                                 ))}
                             </div>
                         ) : mainTab === 'families' ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
                                 {EQUIPOS_NOMBRES.map(fam => {
                                     const exis = equipments.filter(e => e.nombre === fam && e.existe !== false);
                                     const img = familyImages[fam];
                                     return (
-                                        <div key={fam} onClick={() => { setSelectedFamily(fam); setView('family_detail'); }} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden hover:shadow-2xl transition-all cursor-pointer group flex flex-col text-left">
+                                        <div key={fam} onClick={() => { setSelectedFamily(fam); setView('family_detail'); }} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden hover:shadow-2xl transition-all cursor-pointer group flex flex-col">
                                             <div className="h-32 sm:h-40 relative bg-slate-100 flex items-center justify-center overflow-hidden">{img ? <img src={img} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <Icon name="Layers" size={40} className="text-slate-200" />}<div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-60"></div></div>
                                             <div className="p-6 sm:p-8 pt-4">
                                                 <div className="flex justify-between items-start mb-4"><h2 className="text-xl sm:text-2xl font-black text-[#00A896] uppercase tracking-tighter">{fam}</h2><Icon name="ChevronRight" size={20} className="text-slate-200 group-hover:text-[#00A896]" /></div>
@@ -337,12 +364,35 @@
                             </div>
                         ) : <Dashboard equipments={equipments} rooms={rooms} />}
                     </div>
+
+                    {/* MODAL DE AUTENTICACIÓN */}
+                    {showAuthModal && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                            <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full animate-in text-center">
+                                <div className="w-16 h-16 bg-[#00A896]/10 text-[#00A896] rounded-full flex items-center justify-center mx-auto mb-6"><Icon name="Lock" size={32} /></div>
+                                <h3 className="text-xl font-black text-slate-800 mb-2 uppercase">Modo Editor</h3>
+                                <p className="text-sm text-slate-400 mb-6 font-medium">Introduce la clave para habilitar las funciones de modificación.</p>
+                                <input 
+                                    type="password"
+                                    autoFocus
+                                    className={`w-full p-4 bg-slate-50 border-2 rounded-2xl text-center text-xl font-black tracking-widest outline-none mb-4 ${authError ? 'border-red-500 bg-red-50' : 'border-transparent focus:border-[#00A896]'}`}
+                                    value={passInput}
+                                    onChange={(e) => { setPassInput(e.target.value); setAuthError(false); }}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+                                />
+                                <div className="flex gap-3">
+                                    <button onClick={() => { setShowAuthModal(false); setAuthError(false); setPassInput(''); }} className="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest">Cancelar</button>
+                                    <button onClick={handleAuth} className="flex-1 py-4 bg-[#00A896] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">Acceder</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
 
             // VISTA FAMILIA (DETALLE)
             if (view === 'family_detail' && selectedFamily) return (
-                <div className="min-h-screen bg-slate-50 pb-20 animate-in text-left">
+                <div className="min-h-screen bg-slate-50 pb-20 animate-in text-left text-slate-800">
                     <nav className="bg-[#00A896] p-5 text-white flex justify-between items-center sticky top-0 z-30 shadow-md">
                         <button onClick={() => setView('landing')} className="flex items-center gap-2 font-bold hover:text-white/80 transition-all"><Icon name="ChevronLeft" size={20} /> Volver</button>
                         <span className="font-black uppercase truncate text-sm sm:text-lg ml-2">{selectedFamily}</span>
@@ -374,7 +424,12 @@
                     <div className="px-4 sm:px-6 max-w-5xl mx-auto -mt-10 relative z-10 space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {['Operativo', 'Mantenimiento', 'No disponible'].map(st => (
-                                <button key={st} onClick={() => saveChange('rooms', selectedOR.id.toString(), {estado: st})} className={`p-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.1em] border-2 transition-all ${selectedOR.estado === st ? 'bg-slate-900 text-white shadow-2xl border-transparent' : 'bg-white text-slate-300 border-slate-100 hover:border-slate-300'}`}>{st}</button>
+                                <button 
+                                    key={st} 
+                                    disabled={!isAdmin}
+                                    onClick={() => saveChange('rooms', selectedOR.id.toString(), {estado: st})} 
+                                    className={`p-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.1em] border-2 transition-all ${selectedOR.estado === st ? 'bg-slate-900 text-white shadow-2xl border-transparent' : 'bg-white text-slate-300 border-slate-100'} ${isAdmin ? 'hover:border-slate-300' : 'cursor-default opacity-60'}`}
+                                >{st}</button>
                             ))}
                         </div>
 
@@ -421,28 +476,30 @@
                                 const conn = connections.find(c => c.id === docId) || {};
                                 return (
                                     <div key={docId} className={`bg-white p-8 rounded-[2.5rem] shadow-xl border-4 transition-all flex flex-col items-center group ${conn.estado === 'Activa' ? 'border-emerald-500' : 'border-white opacity-95'}`}>
-                                        <div className={`p-6 rounded-[2rem] mb-6 transition-all ${conn.estado === 'Activa' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}><Icon name="Wifi" size={48} /></div>
+                                        <div className={`p-6 rounded-[2rem] mb-6 ${conn.estado === 'Activa' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}><Icon name="Wifi" size={48} /></div>
                                         <div className="mb-6 text-center w-full space-y-2">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Toma Física</p>
-                                            {editingConnId === docId && editingField === 'boca' ? (
+                                            {isAdmin && editingConnId === docId && editingField === 'boca' ? (
                                                 <input autoFocus className="w-full bg-slate-50 p-4 rounded-2xl text-center text-xl font-black text-[#00A896] uppercase border-2 border-[#00A896] outline-none" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => { saveChange('connections', docId, { boca: editValue }); setEditingConnId(null); setEditingField(null); }} onKeyDown={e => e.key === 'Enter' && e.target.blur()} />
                                             ) : (
-                                                <h4 onClick={() => { setEditingConnId(docId); setEditingField('boca'); setEditValue(conn.boca || ''); }} className="text-3xl font-black text-slate-800 uppercase cursor-pointer hover:text-[#00A896] transition-colors">{conn.boca || `Boca ${i}`}</h4>
+                                                <h4 onClick={() => { if(isAdmin) { setEditingConnId(docId); setEditingField('boca'); setEditValue(conn.boca || ''); } }} className={`text-3xl font-black text-slate-800 uppercase ${isAdmin ? 'cursor-pointer hover:text-[#00A896]' : ''}`}>{conn.boca || `Boca ${i}`}</h4>
                                             )}
                                         </div>
                                         <div className="w-full text-center mb-8 space-y-2">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Servicio / Uso</p>
-                                            {editingConnId === docId && editingField === 'uso' ? (
+                                            {isAdmin && editingConnId === docId && editingField === 'uso' ? (
                                                 <input autoFocus className="w-full bg-slate-50 p-4 rounded-2xl text-center text-xl font-black text-slate-800 border-2 border-[#00A896] outline-none" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => { saveChange('connections', docId, { uso: editValue }); setEditingConnId(null); setEditingField(null); }} onKeyDown={e => e.key === 'Enter' && e.target.blur()} />
                                             ) : (
-                                                <div onClick={() => { setEditingConnId(docId); setEditingField('uso'); setEditValue(conn.uso || ''); }} className={`cursor-pointer p-5 rounded-2xl border-2 transition-all ${conn.uso && !['disponible', 'libre', 'disponibles'].includes(conn.uso.toLowerCase()) ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-slate-50 border-transparent text-slate-300'}`}>
+                                                <div onClick={() => { if(isAdmin) { setEditingConnId(docId); setEditingField('uso'); setEditValue(conn.uso || ''); } }} className={`p-5 rounded-2xl border-2 transition-all ${isAdmin ? 'cursor-pointer' : ''} ${conn.uso && !['disponible', 'libre', 'disponibles'].includes(conn.uso.toLowerCase()) ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-slate-50 border-transparent text-slate-300'}`}>
                                                     <p className="text-xl font-black uppercase leading-tight">{conn.uso || 'DISPONIBLE'}</p>
                                                 </div>
                                             )}
                                         </div>
-                                        <button onClick={() => saveChange('connections', docId, { estado: conn.estado === 'Activa' ? 'Inactiva' : 'Activa' })} className={`w-full py-5 rounded-2xl font-black text-[10px] uppercase shadow-md flex items-center justify-center gap-3 ${conn.estado === 'Activa' ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-slate-200 text-slate-400'}`}>
-                                            <Icon name={conn.estado === 'Activa' ? 'Check' : 'RefreshCw'} size={14} />{conn.estado === 'Activa' ? 'Comprobada' : 'No Comprobada'}
-                                        </button>
+                                        {isAdmin && (
+                                            <button onClick={() => saveChange('connections', docId, { estado: conn.estado === 'Activa' ? 'Inactiva' : 'Activa' })} className={`w-full py-5 rounded-2xl font-black text-[10px] uppercase shadow-md flex items-center justify-center gap-3 ${conn.estado === 'Activa' ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-slate-200 text-slate-400'}`}>
+                                                <Icon name={conn.estado === 'Activa' ? 'Check' : 'RefreshCw'} size={14} />{conn.estado === 'Activa' ? 'Comprobada' : 'No Comprobada'}
+                                            </button>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -451,7 +508,7 @@
                 </div>
             );
 
-            // VISTA DETALLE EQUIPO
+            // VISTA DETALLE EQUIPO (CON PROTECCIÓN)
             if (view === 'eq' && selectedEq) return (
                 <div className="min-h-screen bg-slate-50 pb-10 animate-in text-left text-slate-800">
                     <nav className="bg-[#00A896] p-5 text-white flex justify-between items-center sticky top-0 z-30 shadow-md">
@@ -465,49 +522,58 @@
                                 <div className="p-0">
                                     <div className="aspect-video bg-slate-200 relative group overflow-hidden">
                                         <img src={selectedEq.imagen} className="w-full h-full object-cover" />
-                                        <button onClick={() => eqFileRef.current.click()} className="absolute bottom-6 right-6 p-4 bg-[#00A896] text-white rounded-3xl shadow-2xl hover:scale-110 transition-all"><Icon name="Camera" size={24} /></button>
+                                        {isAdmin && (
+                                            <button onClick={() => eqFileRef.current.click()} className="absolute bottom-6 right-6 p-4 bg-[#00A896] text-white rounded-3xl shadow-2xl hover:scale-110 transition-all"><Icon name="Camera" size={24} /></button>
+                                        )}
                                         <input type="file" ref={eqFileRef} className="hidden" onChange={(e) => handleUpload(e, 'eq', selectedEq.id)} />
-                                        <div className="absolute top-6 left-6"><span className="bg-[#00A896] text-white text-[10px] font-black px-4 py-2 rounded-full uppercase shadow-xl tracking-widest">{selectedEq.tipo || 'Médico'}</span></div>
                                     </div>
-                                    <div className="p-8 sm:p-12 space-y-12">
+                                    <div className="p-8 sm:p-12 space-y-12 text-left">
                                         <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                                             <h2 className="text-3xl sm:text-5xl font-black text-slate-900 leading-tight">{selectedEq.nombre}</h2>
-                                            <button onClick={() => {
-                                                const opts = ['Operativo', 'Mantenimiento', 'No disponible'];
-                                                saveChange('equipments', selectedEq.id, { estado: opts[(opts.indexOf(selectedEq.estado || 'Operativo') + 1) % 3] });
-                                            }} className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white shadow-xl flex items-center justify-center gap-2 ${getStatusColor(selectedEq.estado)}`}>
-                                                <Icon name={selectedEq.estado === 'Operativo' ? 'Check' : 'RefreshCw'} size={14} className={selectedEq.estado !== 'Operativo' ? 'animate-spin-slow' : ''} /> {selectedEq.estado}
+                                            <button 
+                                                disabled={!isAdmin}
+                                                onClick={() => {
+                                                    const opts = ['Operativo', 'Mantenimiento', 'No disponible'];
+                                                    saveChange('equipments', selectedEq.id, { estado: opts[(opts.indexOf(selectedEq.estado || 'Operativo') + 1) % 3] });
+                                                }} 
+                                                className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white shadow-xl flex items-center justify-center gap-2 ${getStatusColor(selectedEq.estado)} ${!isAdmin ? 'opacity-60 cursor-default' : ''}`}>
+                                                <Icon name={selectedEq.estado === 'Operativo' ? 'Check' : 'RefreshCw'} size={14} /> {selectedEq.estado}
                                             </button>
                                         </div>
                                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                             <div className="lg:col-span-2 space-y-4">
-                                                <div className="flex items-center justify-between"><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 text-left"><Icon name="Info" size={14} /> Ficha Técnica</h3><button onClick={() => setIsEditingDesc(!isEditingDesc)} className="text-[#00A896] hover:scale-110 transition-transform"><Icon name="Edit" size={16} /></button></div>
-                                                {isEditingDesc ? <div className="space-y-4 text-left"><textarea className="w-full p-8 bg-slate-50 border-2 border-[#00A896] rounded-[2rem] outline-none font-medium italic" value={selectedEq.descripcion} onChange={(e) => saveChange('equipments', selectedEq.id, { descripcion: e.target.value })} /><button onClick={() => setIsEditingDesc(false)} className="bg-[#00A896] text-white px-6 py-2 rounded-xl font-bold text-[10px] uppercase">Finalizar</button></div> : <p className="text-slate-600 text-lg sm:text-xl italic bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">"{selectedEq.descripcion || 'Sin descripción...'}"</p>}
+                                                <div className="flex items-center justify-between"><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 text-left"><Icon name="Info" size={14} /> Ficha Técnica</h3>{isAdmin && <button onClick={() => setIsEditingDesc(!isEditingDesc)} className="text-[#00A896] hover:scale-110 transition-transform"><Icon name="Edit" size={16} /></button>}</div>
+                                                {isAdmin && isEditingDesc ? <div className="space-y-4 text-left"><textarea className="w-full p-8 bg-slate-50 border-2 border-[#00A896] rounded-[2rem] outline-none font-medium italic" value={selectedEq.descripcion} onChange={(e) => saveChange('equipments', selectedEq.id, { descripcion: e.target.value })} /><button onClick={() => setIsEditingDesc(false)} className="bg-[#00A896] text-white px-6 py-2 rounded-xl font-bold text-[10px] uppercase">Finalizar</button></div> : <p className="text-slate-600 text-lg sm:text-xl italic bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">"{selectedEq.descripcion || 'Sin descripción...'}"</p>}
                                             </div>
                                             <div className={`p-8 rounded-[2.5rem] border-2 flex flex-col items-center justify-center relative ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).bg} ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).fullBorder}`}>
-                                                <button onClick={() => setIsEditingAge(!isEditingAge)} className="absolute top-6 right-6 opacity-40 hover:opacity-100"><Icon name="Edit" size={16} /></button>
-                                                {isEditingAge ? <div className="w-full space-y-4"><input type="date" className="w-full p-3 bg-white rounded-2xl text-center font-black" value={selectedEq.fechaAdquisicion} onChange={e => saveChange('equipments', selectedEq.id, { fechaAdquisicion: e.target.value })} /><button onClick={() => setIsEditingAge(false)} className="w-full bg-slate-900 text-white py-2 rounded-xl text-[10px] font-black uppercase text-center">Ok</button></div> : <React.Fragment><Icon name="History" className={getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} size={40} /><p className={`text-6xl font-black ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text}`}>{calcularAntiguedad(selectedEq.fechaAdquisicion)}</p><p className="text-[10px] font-black uppercase text-slate-400 text-center">Años de Servicio</p></React.Fragment>}
+                                                {isAdmin && <button onClick={() => setIsEditingAge(!isEditingAge)} className="absolute top-6 right-6 opacity-40 hover:opacity-100"><Icon name="Edit" size={16} /></button>}
+                                                {isAdmin && isEditingAge ? <div className="w-full space-y-4 text-left text-center"><input type="date" className="w-full p-3 bg-white rounded-2xl text-center font-black" value={selectedEq.fechaAdquisicion} onChange={e => saveChange('equipments', selectedEq.id, { fechaAdquisicion: e.target.value })} /><button onClick={() => setIsEditingAge(false)} className="w-full bg-slate-900 text-white py-2 rounded-xl text-[10px] font-black uppercase text-center">Ok</button></div> : <React.Fragment><Icon name="History" className={getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text} size={40} /><p className={`text-6xl font-black ${getAgeColors(calcularAntiguedad(selectedEq.fechaAdquisicion)).text}`}>{calcularAntiguedad(selectedEq.fechaAdquisicion)}</p><p className="text-[10px] font-black uppercase text-slate-400 text-center">Años de Servicio</p></React.Fragment>}
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                                             <div className={`p-8 rounded-[2.5rem] border transition-all ${selectedEq.requierePreventivo === false ? 'opacity-50 grayscale' : 'bg-white border-slate-100'}`}>
-                                                <div className="flex items-center justify-between mb-6"><div className="flex items-center gap-3 text-[#00A896]"><Icon name="Calendar" size={24} /><h3 className="text-xs font-black uppercase tracking-widest text-left">Mantenimiento</h3></div><div className="flex items-center gap-2"><button onClick={() => saveChange('equipments', selectedEq.id, { requierePreventivo: !selectedEq.requierePreventivo })} className={`w-10 h-5 rounded-full transition-all relative ${selectedEq.requierePreventivo !== false ? 'bg-[#00A896]' : 'bg-slate-300'}`}><div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all`} style={{left: selectedEq.requierePreventivo !== false ? '22px' : '4px'}}></div></button><button onClick={() => setIsEditingMaint(!isEditingMaint)} className="ml-2 text-slate-300 hover:text-[#00A896]"><Icon name="Edit" size={16}/></button></div></div>
-                                                {isEditingMaint ? <div className="space-y-4 animate-in text-left"><input type="date" className="w-full p-3 border rounded-2xl font-black" value={selectedEq.ultimaRevision} onChange={e => saveChange('equipments', selectedEq.id, { ultimaRevision: e.target.value })} /><select className="w-full p-3 border rounded-2xl font-black text-left" value={selectedEq.periodicidad} onChange={e => saveChange('equipments', selectedEq.id, { periodicidad: e.target.value })}><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="bienal">Bienal</option></select><button onClick={() => { saveChange('equipments', selectedEq.id, { ultimaRevision: new Date().toISOString().split('T')[0] }); setIsEditingMaint(false); }} className="w-full bg-blue-600 text-white py-3 rounded-2xl text-[10px] font-black uppercase text-left">Realizado Hoy</button></div> : <React.Fragment><div className="flex items-center gap-4 mb-6"><p className="text-3xl font-black text-left">{new Date(selectedEq.ultimaRevision || Date.now()).toLocaleDateString('es-ES')}</p><div className={`p-2 rounded-full ${isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'bg-red-500' : 'bg-emerald-500'}`}><Icon name={isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'AlertCircle' : 'Check'} size={14} className="text-white" /></div></div><div className="pt-6 border-t border-slate-100"><p className="text-[10px] font-black text-slate-400 uppercase mb-1 text-left">Próxima ({selectedEq.periodicidad})</p><p className={`font-black text-lg ${isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'text-red-500' : 'text-emerald-600'}`}>{calcularProximaRevision(selectedEq.ultimaRevision, selectedEq.periodicidad)}</p></div></React.Fragment>}
+                                                <div className="flex items-center justify-between mb-6"><div className="flex items-center gap-3 text-[#00A896]"><Icon name="Calendar" size={24} /><h3 className="text-xs font-black uppercase tracking-widest text-left">Mantenimiento</h3></div><div className="flex items-center gap-2">{isAdmin && <React.Fragment><button onClick={() => saveChange('equipments', selectedEq.id, { requierePreventivo: !selectedEq.requierePreventivo })} className={`w-10 h-5 rounded-full transition-all relative ${selectedEq.requierePreventivo !== false ? 'bg-[#00A896]' : 'bg-slate-300'}`}><div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all`} style={{left: selectedEq.requierePreventivo !== false ? '22px' : '4px'}}></div></button><button onClick={() => setIsEditingMaint(!isEditingMaint)} className="ml-2 text-slate-300 hover:text-[#00A896]"><Icon name="Edit" size={16}/></button></React.Fragment>}</div></div>
+                                                {isAdmin && isEditingMaint ? <div className="space-y-4 animate-in text-left"><input type="date" className="w-full p-3 border rounded-2xl font-black text-left" value={selectedEq.ultimaRevision} onChange={e => saveChange('equipments', selectedEq.id, { ultimaRevision: e.target.value })} /><select className="w-full p-3 border rounded-2xl font-black text-left" value={selectedEq.periodicidad} onChange={e => saveChange('equipments', selectedEq.id, { periodicidad: e.target.value })}><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="bienal">Bienal</option></select><button onClick={() => { saveChange('equipments', selectedEq.id, { ultimaRevision: new Date().toISOString().split('T')[0] }); setIsEditingMaint(false); }} className="w-full bg-blue-600 text-white py-3 rounded-2xl text-[10px] font-black uppercase text-center text-left">Realizado Hoy</button></div> : <React.Fragment><div className="flex items-center gap-4 mb-6"><p className="text-3xl font-black text-left">{new Date(selectedEq.ultimaRevision || Date.now()).toLocaleDateString('es-ES')}</p><div className={`p-2 rounded-full ${isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'bg-red-500' : 'bg-emerald-500'}`}><Icon name={isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'AlertCircle' : 'Check'} size={14} className="text-white" /></div></div><div className="pt-6 border-t border-slate-100 text-left"><p className="text-[10px] font-black text-slate-400 uppercase mb-1 text-left">Próxima ({selectedEq.periodicidad})</p><p className={`font-black text-lg ${isMaintenanceOverdue(selectedEq.ultimaRevision, selectedEq.periodicidad) ? 'text-red-500' : 'text-emerald-600'}`}>{calcularProximaRevision(selectedEq.ultimaRevision, selectedEq.periodicidad)}</p></div></React.Fragment>}
                                             </div>
                                             <div className="p-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-center space-y-6">
                                                 <div className="flex items-center gap-3 text-slate-400"><Icon name="FileText" size={24} /><h3 className="text-xs font-black uppercase tracking-widest text-left">Manual Técnico</h3></div>
-                                                {selectedEq.manualUrl || selectedEq.manualExternalUrl ? <div className="flex flex-col gap-4 text-left"><button onClick={() => window.open(selectedEq.manualExternalUrl || selectedEq.manualUrl)} className="flex items-center gap-2 text-[#00A896] font-black text-2xl hover:translate-x-1 transition-transform">Ver Documento <Icon name="ExternalLink" size={20} /></button><button onClick={() => saveChange('equipments', selectedEq.id, { manualUrl: "", manualExternalUrl: "" })} className="text-[10px] font-black text-slate-300 hover:text-red-500 uppercase text-left">Eliminar</button></div> : <div className="space-y-4"><button onClick={() => manualFileRef.current.click()} className="flex items-center gap-2 text-slate-400 font-black hover:text-[#00A896]"><Icon name="Camera" size={20} /> Subir PDF</button><div className="flex items-center gap-2 bg-slate-50 p-3 rounded-2xl border border-dashed border-slate-200"><Icon name="Link" size={16} className="text-slate-300" /><input className="bg-transparent text-xs outline-none w-full font-black uppercase" placeholder="Link externo..." value={manualLink} onChange={(e) => setManualLink(e.target.value)} onBlur={() => { if(manualLink) saveChange('equipments', selectedEq.id, { manualExternalUrl: manualLink, manualUrl: "" }); setManualLink(''); }} /></div><input type="file" ref={manualFileRef} className="hidden" onChange={(e) => handleUpload(e, 'manual', selectedEq.id)} /></div>}
+                                                {selectedEq.manualUrl || selectedEq.manualExternalUrl ? <div className="flex flex-col gap-4 text-left"><button onClick={() => window.open(selectedEq.manualExternalUrl || selectedEq.manualUrl)} className="flex items-center gap-2 text-[#00A896] font-black text-2xl hover:translate-x-1 transition-transform">Ver Documento <Icon name="ExternalLink" size={20} /></button>{isAdmin && <button onClick={() => saveChange('equipments', selectedEq.id, { manualUrl: "", manualExternalUrl: "" })} className="text-[10px] font-black text-slate-300 hover:text-red-500 uppercase text-left">Eliminar</button>}</div> : (isAdmin ? <div className="space-y-4"><button onClick={() => manualFileRef.current.click()} className="flex items-center gap-2 text-slate-400 font-black hover:text-[#00A896]"><Icon name="Camera" size={20} /> Subir PDF</button><div className="flex items-center gap-2 bg-slate-50 p-3 rounded-2xl border border-dashed border-slate-200"><Icon name="Link" size={16} className="text-slate-300" /><input className="bg-transparent text-xs outline-none w-full font-black uppercase" placeholder="Link externo..." value={manualLink} onChange={(e) => setManualLink(e.target.value)} onBlur={() => { if(manualLink) saveChange('equipments', selectedEq.id, { manualExternalUrl: manualLink, manualUrl: "" }); setManualLink(''); }} /></div><input type="file" ref={manualFileRef} className="hidden" onChange={(e) => handleUpload(e, 'manual', selectedEq.id)} /></div> : <p className="text-xs font-bold text-slate-300 uppercase italic">Sin manual disponible</p>)}
                                             </div>
                                         </div>
-                                        <div className="bg-blue-50/50 p-8 rounded-[3rem] border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-8 text-left">
-                                            <div className="flex items-center gap-6"><div className="p-5 bg-white rounded-3xl text-blue-600 shadow-sm"><Icon name="Truck" size={32} /></div><div className="text-left"><h4 className="font-black text-slate-800 text-xl uppercase tracking-tighter">Traslado Inteligente</h4><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Intercambio automático por familia</p></div></div>
-                                            {isTransferring ? <div className="flex items-center gap-3 animate-in w-full md:w-auto text-left"><select className="flex-grow p-4 bg-white border-2 border-blue-200 rounded-2xl font-black uppercase text-xs" onChange={(e) => handleTransfer(selectedEq, e.target.value)}><option value="">Seleccionar Quirófano...</option>{rooms.filter(r => r.id.toString() !== selectedEq.roomId.toString()).map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}</select><button onClick={() => setIsTransferring(false)} className="p-4 text-slate-400 hover:text-red-500"><Icon name="X" size={20} /></button></div> : <button onClick={() => setIsTransferring(true)} className="w-full md:w-auto px-10 py-5 bg-blue-600 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all text-left">Gestionar Traslado</button>}
-                                        </div>
-                                        <div className="mt-12 pt-12 border-t border-slate-100 text-left"><div className="bg-slate-900 p-8 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl text-left"><div className="flex items-center gap-6 text-left"><div className="p-4 bg-red-500/20 text-red-500 rounded-2xl text-left"><Icon name="AlertCircle" size={28} /></div><div className="text-left text-white"><h4 className="font-black text-xl uppercase tracking-tight text-left">Estado de Existencia</h4><p className="text-[10px] text-white/40 font-bold uppercase text-left">Marcar si el equipo ha salido físicamente de la sala</p></div></div><button onClick={() => { saveChange('equipments', selectedEq.id, { existe: false }); setView('detail'); }} className="px-8 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all text-left">Sacar de Quirófano</button></div></div>
+
+                                        {isAdmin && (
+                                            <React.Fragment>
+                                                <div className="bg-blue-50/50 p-8 rounded-[3rem] border border-blue-100 flex flex-col md:flex-row items-center justify-between gap-8 text-left">
+                                                    <div className="flex items-center gap-6"><div className="p-5 bg-white rounded-3xl text-blue-600 shadow-sm"><Icon name="Truck" size={32} /></div><div className="text-left"><h4 className="font-black text-slate-800 text-xl uppercase tracking-tighter">Traslado Inteligente</h4><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Intercambio automático por familia</p></div></div>
+                                                    {isTransferring ? <div className="flex items-center gap-3 animate-in w-full md:w-auto text-left"><select className="flex-grow p-4 bg-white border-2 border-blue-200 rounded-2xl font-black uppercase text-xs" onChange={(e) => handleTransfer(selectedEq, e.target.value)}><option value="">Seleccionar Quirófano...</option>{rooms.filter(r => r.id.toString() !== selectedEq.roomId.toString()).map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}</select><button onClick={() => setIsTransferring(false)} className="p-4 text-slate-400 hover:text-red-500"><Icon name="X" size={20} /></button></div> : <button onClick={() => setIsTransferring(true)} className="w-full md:w-auto px-10 py-5 bg-blue-600 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all text-left">Gestionar Traslado</button>}
+                                                </div>
+                                                <div className="mt-12 pt-12 border-t border-slate-100 text-left"><div className="bg-slate-900 p-8 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl text-left"><div className="flex items-center gap-6 text-left"><div className="p-4 bg-red-500/20 text-red-500 rounded-2xl text-left"><Icon name="AlertCircle" size={28} /></div><div className="text-left text-white"><h4 className="font-black text-xl uppercase tracking-tight text-left">Estado de Existencia</h4><p className="text-[10px] text-white/40 font-bold uppercase text-left">Marcar si el equipo ha salido físicamente de la sala</p></div></div><button onClick={() => { saveChange('equipments', selectedEq.id, { existe: false }); setView('detail'); }} className="px-8 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all text-left">Sacar de Quirófano</button></div></div>
+                                            </React.Fragment>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-20 text-center flex flex-col items-center gap-8 bg-slate-50 text-left"><div className="w-32 h-32 bg-white rounded-full flex items-center justify-center text-red-500 shadow-inner border border-slate-200 text-left"><Icon name="EyeOff" size={64} /></div><h3 className="text-4xl font-black text-slate-900 uppercase tracking-tighter text-left">Equipo fuera de sala</h3><button onClick={() => saveChange('equipments', selectedEq.id, { existe: true })} className="bg-[#00A896] text-white px-12 py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:scale-105 transition-all text-left">Volver a habilitar en sala</button></div>
+                                <div className="p-20 text-center flex flex-col items-center gap-8 bg-slate-50 text-left"><div className="w-32 h-32 bg-white rounded-full flex items-center justify-center text-red-500 shadow-inner border border-slate-200 text-left"><Icon name="EyeOff" size={64} /></div><h3 className="text-4xl font-black text-slate-900 uppercase tracking-tighter text-center">Equipo fuera de sala</h3>{isAdmin && <button onClick={() => saveChange('equipments', selectedEq.id, { existe: true })} className="bg-[#00A896] text-white px-12 py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:scale-105 transition-all text-center">Volver a habilitar en sala</button>}</div>
                             )}
                         </div>
                     </div>
